@@ -46,7 +46,7 @@ jobs:
           CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME_DEV }}
           CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN_DEV }}
-          HOSTED_ZONE_DOMAIN: ${{ secrets.HOSTED_ZONE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
           STAGE_NAME: dev
         run: cdk synth
 
@@ -56,7 +56,7 @@ jobs:
           CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME_DEV }}
           CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN_DEV }}
-          HOSTED_ZONE_DOMAIN: ${{ secrets.HOSTED_ZONE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
           STAGE_NAME: dev
         run: cdk deploy --require-approval never
       

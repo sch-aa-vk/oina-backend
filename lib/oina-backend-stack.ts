@@ -18,7 +18,7 @@ export class OinaBackendStack extends cdk.Stack {
 		const stageName = process.env.STAGE_NAME ?? 'dev';
 		const domainName = process.env.DOMAIN_NAME;
 		const certificateArn = process.env.CERTIFICATE_ARN;
-		const hostedZoneDomain = process.env.HOSTED_ZONE_DOMAIN;
+		const hostedZoneId = process.env.HOSTED_ZONE_ID;
 
 		const userPool = new cognito.UserPool(this, `OinaUserPool${stageName}`, {
 			userPoolName: `oina-user-pool-${stageName}`,
@@ -92,10 +92,14 @@ export class OinaBackendStack extends cdk.Stack {
 
 		const authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
 			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-			managedPolicies: [
-				iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-			],
 		});
+		authLambdaRole.addManagedPolicy(
+			iam.ManagedPolicy.fromManagedPolicyArn(
+				this,
+				`AuthLambdaBasicExecutionPolicy${stageName}`,
+				`arn:${cdk.Aws.PARTITION}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+			)
+		);
 
 		usersTable.grantReadWriteData(authLambdaRole);
 		otpCodesTable.grantReadWriteData(authLambdaRole);
@@ -181,7 +185,7 @@ export class OinaBackendStack extends cdk.Stack {
 		addPost(authResource, 'reset-password', resetPasswordFn);
 		addPost(authResource, 'validate-token', validateTokenFn);
 
-		if (domainName && certificateArn && hostedZoneDomain) {
+		if (domainName && certificateArn && hostedZoneId) {
 			const certificate = certificatemanager.Certificate.fromCertificateArn(
 				this,
 				`ApiCertificate${stageName}`,
@@ -201,9 +205,11 @@ export class OinaBackendStack extends cdk.Stack {
 				stage: api.deploymentStage,
 			});
 
-			const hostedZone = route53.HostedZone.fromLookup(this, `HostedZone${stageName}`, {
-				domainName: hostedZoneDomain,
-			});
+			const hostedZone = route53.HostedZone.fromHostedZoneId(
+				this,
+				`HostedZone${stageName}`,
+				hostedZoneId
+			);
 
 			new route53.ARecord(this, `ApiAliasRecord${stageName}`, {
 				zone: hostedZone,
