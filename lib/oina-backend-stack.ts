@@ -19,6 +19,7 @@ export class OinaBackendStack extends cdk.Stack {
 		const domainName = process.env.DOMAIN_NAME;
 		const certificateArn = process.env.CERTIFICATE_ARN;
 		const hostedZoneId = process.env.HOSTED_ZONE_ID;
+		const hostedZoneName = process.env.HOSTED_ZONE_NAME;
 
 		const userPool = new cognito.UserPool(this, `OinaUserPool${stageName}`, {
 			userPoolName: `oina-user-pool-${stageName}`,
@@ -185,7 +186,7 @@ export class OinaBackendStack extends cdk.Stack {
 		addPost(authResource, 'reset-password', resetPasswordFn);
 		addPost(authResource, 'validate-token', validateTokenFn);
 
-		if (domainName && certificateArn && hostedZoneId) {
+		if (domainName && certificateArn && hostedZoneId && hostedZoneName) {
 			const certificate = certificatemanager.Certificate.fromCertificateArn(
 				this,
 				`ApiCertificate${stageName}`,
@@ -205,10 +206,13 @@ export class OinaBackendStack extends cdk.Stack {
 				stage: api.deploymentStage,
 			});
 
-			const hostedZone = route53.HostedZone.fromHostedZoneId(
+			const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
 				this,
 				`HostedZone${stageName}`,
-				hostedZoneId
+				{
+					hostedZoneId,
+					zoneName: hostedZoneName,
+				}
 			);
 
 			new route53.ARecord(this, `ApiAliasRecord${stageName}`, {
