@@ -8,7 +8,7 @@ import {
   DeleteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { OTPRecord, OTPType } from '../types/auth.types';
 import { UserRecord } from '../types/user.types';
 import { generateOTPCode, getOTPExpiry, isMaxAttemptsExceeded } from '../utils/otp';
