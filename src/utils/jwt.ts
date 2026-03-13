@@ -3,7 +3,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { TokenPayload, AuthTokens } from '../types/auth.types';
 import { Errors } from './errors';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('Missing required environment variable: JWT_SECRET');
+}
 const ACCESS_TOKEN_EXPIRY = '1h';
 const REFRESH_TOKEN_EXPIRY = '7d';
 

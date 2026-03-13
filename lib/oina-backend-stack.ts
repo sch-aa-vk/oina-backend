@@ -25,6 +25,11 @@ export class OinaBackendStack extends cdk.Stack {
 		const smtpUser = process.env.SMTP_USER ?? '';
 		const smtpPassword = process.env.SMTP_PASSWORD ?? '';
 		const smtpFrom = process.env.SMTP_FROM ?? '';
+		const jwtSecret = process.env.JWT_SECRET ?? '';
+
+		if (!jwtSecret) {
+			throw new Error('Missing required environment variable: JWT_SECRET');
+		}
 
 		const userPool = new cognito.UserPool(this, `OinaUserPool${stageName}`, {
 			userPoolName: `oina-user-pool-${stageName}`,
@@ -134,6 +139,7 @@ export class OinaBackendStack extends cdk.Stack {
 			DYNAMODB_BLACKLIST_TABLE: tokenBlacklistTable.tableName,
 			COGNITO_USER_POOL_ID: userPool.userPoolId,
 			COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+			JWT_SECRET: jwtSecret,
 			SMTP_HOST: smtpHost,
 			SMTP_PORT: smtpPort,
 			SMTP_USER: smtpUser,
