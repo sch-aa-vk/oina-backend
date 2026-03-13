@@ -476,23 +476,108 @@ SMTP_FROM=noreply@example.com
 
 ## 9. DEPLOYMENT STRUCTURE (AWS CDK)
 
+### Overall Architecture - Single Comprehensive Stack
+
 ```
-cdk-stack/
+lib/
 ├── stacks/
-│   ├── AuthStack.ts           # Cognito setup
-│   ├── DatabaseStack.ts       # DynamoDB tables
-│   ├── StorageStack.ts        # S3 buckets
-│   ├── ApiStack.ts            # API Gateway
-│   └── LambdaStack.ts         # Lambda functions
-├── lambdas/
+│   └── OinaBackendStack.ts        # All phases in ONE stack (conditionally deployed)
+├── services/                       # Shared business logic
+│   ├── auth.service.ts
+│   ├── email.service.ts
+│   ├── token.service.ts
+│   └── cognito.service.ts
+├── middleware/
+│   ├── auth.middleware.ts
+│   └── ... (other middleware)
+├── handlers/                       # Lambda function handlers
 │   ├── auth/
-│   ├── users/
-│   ├── games/
-│   ├── published-games/
-│   └── analytics/
-└── lib/
-    ├── constructs/            # Reusable CDK constructs
-    └── config/                # Environment config
+│   │   ├── register.ts
+│   │   ├── login.ts
+│   │   ├── logout.ts
+│   │   ├── verify-email.ts
+│   │   ├── resend-code.ts
+│   │   ├── refresh-token.ts
+│   │   ├── forgot-password.ts
+│   │   ├── reset-password.ts
+│   │   └── validate-token.ts
+│   ├── profile/               # Phase 2
+│   │   ├── get-profile.ts
+│   │   ├── update-profile.ts
+│   │   └── ... (other profile endpoints)
+│   └── games/                 # Phase 3 (NOT DISCUSSED)
+│       ├── create-game.ts
+│       └── ... (other game endpoints)
+├── types/
+│   ├── auth.types.ts
+│   ├── user.types.ts
+│   ├── game.types.ts
+│   └── responses.types.ts
+├── utils/
+│   ├── otp.ts
+│   ├── jwt.ts
+│   ├── validators.ts
+│   └── errors.ts
+└── config/
+    └── smtp.config.ts
+```
+
+### Single Stack Pattern (OinaBackendStack.ts)
+
+```typescript
+// oina-backend-stack.ts
+constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  super(scope, id, props);
+  
+  // PHASE 2: Auth & Users
+  // Cognito User Pool + Client
+  // Lambda functions for /auth/* endpoints
+  // Lambda functions for /profile/* endpoints
+  // IAM roles, DynamoDB access, API Gateway routes
+  
+  // PHASE 3+: Only add when discussed and approved
+  // Lambda functions for /games/* endpoints
+  // Game management infrastructure
+}
+```
+
+#### What Goes in OinaBackendStack:
+
+**Phase 2 (Default - Always Deployed)**
+- Cognito User Pool + Client configuration
+- 9 Auth Lambda functions (register, login, logout, etc.)
+- User profile CRUD Lambda functions
+- IAM roles for Lambda + DynamoDB + Cognito access
+- API Gateway routes: `/auth/*` and `/profile/*`
+- CloudWatch logging
+
+**Phase 3+ (Added when discussed & approved)**
+- Game management Lambda functions
+- Game discovery Lambda functions
+- Additional API Gateway routes
+
+#### Deployment with GitHub Actions
+
+```yaml
+- name: Deploy CDK Stack
+  run: npx cdk deploy --all
+```
+
+#### Environment Variables
+
+```
+COGNITO_USER_POOL_ID
+COGNITO_CLIENT_ID
+DYNAMODB_USERS_TABLE
+DYNAMODB_OTP_TABLE
+DYNAMODB_BLACKLIST_TABLE
+SMTP_HOST
+SMTP_PORT
+SMTP_USER
+SMTP_PASSWORD
+SMTP_FROM
+JWT_SECRET
+OTP_EXPIRY_MINUTES=15
 ```
 
 ---
@@ -508,6 +593,8 @@ cdk-stack/
 - [ ] API Gateway with rate limiting
 
 ### Phase 2: Authentication & Users
+**Location:** `lib/stacks/OinaBackendStack.ts` (enabled by default)
+
 - [ ] Cognito User Pool setup (email + password auth)
 - [ ] Nodemailer integration with SMTP (email delivery)
 - [ ] Email verification flow (6-digit OTP, 15 min expiry)
@@ -523,6 +610,8 @@ cdk-stack/
 - [ ] Account deletion (hard delete + cascade games)
 
 ### Phase 3: Game Management (NOT DISCUSSED)
+**Location:** `lib/stacks/OinaBackendStack.ts`
+
 - [ ] Create game with quota validation (5 max, 3/month)
 - [ ] Update, delete games
 - [ ] Three visibility states: draft, private-link, public
@@ -532,6 +621,8 @@ cdk-stack/
 - [ ] Preview endpoint for drafts
 
 ### Phase 4: Discovery & Interaction (NOT DISCUSSED)
+**Location:** `lib/stacks/OinaBackendStack.ts`
+
 - [ ] Public games listing (cursor pagination, newest first)
 - [ ] Sort by: date, likes, views, category
 - [ ] Share link access
@@ -540,11 +631,15 @@ cdk-stack/
 - [ ] User's public games page
 
 ### Phase 5: AI Features (NOT DISCUSSED, Future)
+**Location:** `lib/stacks/OinaBackendStack.ts`
+
 - [ ] Text generation for game content
 - [ ] Color palette suggestions
 - [ ] Description enhancement
 
 ### Phase 6: Monitoring & Optimization (NOT DISCUSSED)
+**Location:** `lib/stacks/OinaBackendStack.ts`
+
 - [ ] CloudWatch logging
 - [ ] Error tracking
 - [ ] Cost optimization
