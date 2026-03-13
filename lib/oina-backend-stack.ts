@@ -40,6 +40,9 @@ export class OinaBackendStack extends cdk.Stack {
 			},
 			accountRecovery: cognito.AccountRecovery.NONE,
 			email: cognito.UserPoolEmail.withCognito(),
+			customAttributes: {
+				userId: new cognito.StringAttribute({ mutable: false }),
+			},
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 
