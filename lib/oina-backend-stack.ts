@@ -20,6 +20,11 @@ export class OinaBackendStack extends cdk.Stack {
 		const certificateArn = process.env.CERTIFICATE_ARN;
 		const hostedZoneId = process.env.HOSTED_ZONE_ID;
 		const hostedZoneName = process.env.HOSTED_ZONE_NAME;
+		const smtpHost = process.env.SMTP_HOST ?? '';
+		const smtpPort = process.env.SMTP_PORT ?? '';
+		const smtpUser = process.env.SMTP_USER ?? '';
+		const smtpPassword = process.env.SMTP_PASSWORD ?? '';
+		const smtpFrom = process.env.SMTP_FROM ?? '';
 
 		const userPool = new cognito.UserPool(this, `OinaUserPool${stageName}`, {
 			userPoolName: `oina-user-pool-${stageName}`,
@@ -126,6 +131,11 @@ export class OinaBackendStack extends cdk.Stack {
 			DYNAMODB_BLACKLIST_TABLE: tokenBlacklistTable.tableName,
 			COGNITO_USER_POOL_ID: userPool.userPoolId,
 			COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+			SMTP_HOST: smtpHost,
+			SMTP_PORT: smtpPort,
+			SMTP_USER: smtpUser,
+			SMTP_PASSWORD: smtpPassword,
+			SMTP_FROM: smtpFrom,
 		};
 
 		const createAuthLambda = (id: string, entry: string) =>
