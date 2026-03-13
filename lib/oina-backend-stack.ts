@@ -154,6 +154,36 @@ export class OinaBackendStack extends cdk.Stack {
 		const forgotPasswordFn = createAuthLambda('ForgotPasswordLambda', 'forgot-password.ts');
 		const resetPasswordFn = createAuthLambda('ResetPasswordLambda', 'reset-password.ts');
 		const validateTokenFn = createAuthLambda('ValidateTokenLambda', 'validate-token.ts');
+		const docsUiFn = new lambdaNodejs.NodejsFunction(this, `DocsUiLambda${stageName}`, {
+			functionName: `oina-docs-ui-${stageName}`,
+			entry: path.join(__dirname, '../src/handlers/docs/swagger-ui.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			role: authLambdaRole,
+			timeout: cdk.Duration.seconds(30),
+			memorySize: 256,
+			bundling: {
+				minify: false,
+				sourceMap: true,
+				externalModules: [],
+			},
+			environment: sharedEnv,
+		});
+		const openApiFn = new lambdaNodejs.NodejsFunction(this, `OpenApiLambda${stageName}`, {
+			functionName: `oina-openapi-${stageName}`,
+			entry: path.join(__dirname, '../src/handlers/docs/openapi.ts'),
+			handler: 'handler',
+			runtime: lambda.Runtime.NODEJS_20_X,
+			role: authLambdaRole,
+			timeout: cdk.Duration.seconds(30),
+			memorySize: 256,
+			bundling: {
+				minify: false,
+				sourceMap: true,
+				externalModules: [],
+			},
+			environment: sharedEnv,
+		});
 
 		const api = new apigateway.RestApi(this, `OinaApi${stageName}`, {
 			restApiName: `oina-api-${stageName}`,
@@ -170,9 +200,14 @@ export class OinaBackendStack extends cdk.Stack {
 
 		const authResource = api.root.addResource('auth');
 
-		const addPost = (resource: apigateway.Resource, routePath: string, fn: lambda.Function) => {
+		const addPost = (resource: apigateway.IResource, routePath: string, fn: lambda.IFunction) => {
 			const child = resource.addResource(routePath);
 			child.addMethod('POST', new apigateway.LambdaIntegration(fn));
+			return child;
+		};
+		const addGet = (resource: apigateway.IResource, routePath: string, fn: lambda.IFunction) => {
+			const child = resource.addResource(routePath);
+			child.addMethod('GET', new apigateway.LambdaIntegration(fn));
 			return child;
 		};
 
@@ -185,6 +220,8 @@ export class OinaBackendStack extends cdk.Stack {
 		addPost(authResource, 'forgot-password', forgotPasswordFn);
 		addPost(authResource, 'reset-password', resetPasswordFn);
 		addPost(authResource, 'validate-token', validateTokenFn);
+		addGet(api.root, 'docs', docsUiFn);
+		addGet(api.root, 'openapi.json', openApiFn);
 
 		if (domainName && certificateArn && hostedZoneId && hostedZoneName) {
 			const certificate = certificatemanager.Certificate.fromCertificateArn(
@@ -225,6 +262,10 @@ export class OinaBackendStack extends cdk.Stack {
 		new cdk.CfnOutput(this, `ApiUrl${stageName}`, {
 			value: api.url,
 			description: 'Base URL of the OINA API',
+		});
+		new cdk.CfnOutput(this, `DocsUrl${stageName}`, {
+			value: `${api.url}docs`,
+			description: 'Swagger UI URL of the OINA API',
 		});
 		new cdk.CfnOutput(this, `UserPoolId${stageName}`, {
 			value: userPool.userPoolId,
