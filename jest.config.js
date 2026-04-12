@@ -5,8 +5,5 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: '<rootDir>/test/tsconfig.json' }]
   },
-  moduleNameMapper: {
-    '^uuid$': '<rootDir>/__mocks__/uuid.js',
-  },
   setupFilesAfterEnv: ['aws-cdk-lib/testhelpers/jest-autoclean'],
 };

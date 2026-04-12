@@ -5,6 +5,9 @@
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 
+// ── Mock uuid (ESM-only package, not natively supported by ts-jest CommonJS) ──
+jest.mock('uuid', () => ({ v4: jest.fn(() => 'mock-uuid') }));
+
 // ── Mock DynamoDB ─────────────────────────────────────────────────────────────
 
 const mockSend = jest.fn();
