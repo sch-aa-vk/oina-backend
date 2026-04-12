@@ -4,6 +4,12 @@
  */
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
+import { handler as getGame } from '../../src/handlers/games/get-game';
+import { handler as listGames } from '../../src/handlers/games/list-games';
+import { handler as deleteGame } from '../../src/handlers/games/delete-game';
+import { handler as publishGame } from '../../src/handlers/games/publish-game';
+import { handler as previewGame } from '../../src/handlers/games/preview-game';
+import { handler as createGame } from '../../src/handlers/games/create-game';
 
 // ── Mock uuid (ESM-only package, not natively supported by ts-jest CommonJS) ──
 jest.mock('uuid', () => ({ v4: jest.fn(() => 'mock-uuid') }));
@@ -15,7 +21,7 @@ jest.mock('@aws-sdk/client-dynamodb', () => ({
   DynamoDBClient: jest.fn().mockImplementation(() => ({})),
 }));
 jest.mock('@aws-sdk/lib-dynamodb', () => ({
-  DynamoDBDocumentClient: { from: jest.fn().mockReturnValue({ send: mockSend }) },
+  DynamoDBDocumentClient: { from: jest.fn().mockReturnValue({ get send() { return mockSend; } }) },
   GetCommand: jest.fn(),
   QueryCommand: jest.fn(),
   TransactWriteCommand: jest.fn(),
@@ -27,8 +33,8 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 // ── Mock token validation ────────────────────────────────────────────────────
 
 const mockValidateAccessToken = jest.fn();
-jest.mock('../../src/services/token.service', () => ({
-  validateAccessToken: mockValidateAccessToken,
+jest.mock('@src/services/token', () => ({
+  get validateAccessToken() { return mockValidateAccessToken; },
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -82,8 +88,7 @@ describe('GET /games/{gameId} handler', () => {
   it('returns 200 for owner', async () => {
     mockSend.mockResolvedValueOnce({ Item: mockGame }); // GetCommand for game
 
-    const { handler } = await import('../../src/handlers/games/get-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await getGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -93,8 +98,7 @@ describe('GET /games/{gameId} handler', () => {
   it('returns 403 for non-owner', async () => {
     mockSend.mockResolvedValueOnce({ Item: { ...mockGame, userId: 'other-user' } });
 
-    const { handler } = await import('../../src/handlers/games/get-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await getGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(403);
     const body = JSON.parse(result.body);
@@ -104,8 +108,7 @@ describe('GET /games/{gameId} handler', () => {
   it('returns 404 when game not found', async () => {
     mockSend.mockResolvedValueOnce({ Item: undefined });
 
-    const { handler } = await import('../../src/handlers/games/get-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'nonexistent' } }));
+    const result = await getGame(makeEvent({ pathParameters: { gameId: 'nonexistent' } }));
 
     expect(result.statusCode).toBe(404);
     const body = JSON.parse(result.body);
@@ -117,8 +120,7 @@ describe('GET /games/{gameId} handler', () => {
       Object.assign(new Error('TOKEN_MISSING'), { statusCode: 401, errorCode: 'TOKEN_MISSING', name: 'AppError' })
     );
 
-    const { handler } = await import('../../src/handlers/games/get-game');
-    const result = await handler(makeEvent({ headers: {}, pathParameters: { gameId: 'game-1' } }));
+    const result = await getGame(makeEvent({ headers: {}, pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(401);
   });
@@ -130,8 +132,7 @@ describe('GET /games handler', () => {
   it('returns 200 with empty list', async () => {
     mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
 
-    const { handler } = await import('../../src/handlers/games/list-games');
-    const result = await handler(makeEvent());
+    const result = await listGames(makeEvent());
 
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -145,8 +146,7 @@ describe('GET /games handler', () => {
       LastEvaluatedKey: { gameId: 'game-1', userId: 'user-1', createdAt: '2026-04-01' },
     });
 
-    const { handler } = await import('../../src/handlers/games/list-games');
-    const result = await handler(makeEvent());
+    const result = await listGames(makeEvent());
 
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
@@ -163,8 +163,7 @@ describe('DELETE /games/{gameId} handler', () => {
       .mockResolvedValueOnce({}) // DeleteCommand
       .mockResolvedValueOnce({}); // UpdateCommand (decrement)
 
-    const { handler } = await import('../../src/handlers/games/delete-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await deleteGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(200);
   });
@@ -172,8 +171,7 @@ describe('DELETE /games/{gameId} handler', () => {
   it('returns 403 for non-owner', async () => {
     mockSend.mockResolvedValueOnce({ Item: { ...mockGame, userId: 'other-user' } });
 
-    const { handler } = await import('../../src/handlers/games/delete-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await deleteGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(403);
   });
@@ -189,8 +187,7 @@ describe('POST /games/{gameId}/publish handler', () => {
       .mockResolvedValueOnce({}) // PutCommand (version)
       .mockResolvedValueOnce({ Item: { ...mockGame, visibility: 'public', currentVersion: 2 } }); // GetCommand (after update)
 
-    const { handler } = await import('../../src/handlers/games/publish-game');
-    const result = await handler(
+    const result = await publishGame(
       makeEvent({
         pathParameters: { gameId: 'game-1' },
         body: JSON.stringify({ visibility: 'public' }),
@@ -205,8 +202,7 @@ describe('POST /games/{gameId}/publish handler', () => {
   it('rejects invalid transition draft -> draft', async () => {
     mockSend.mockResolvedValueOnce({ Item: mockGame });
 
-    const { handler } = await import('../../src/handlers/games/publish-game');
-    const result = await handler(
+    const result = await publishGame(
       makeEvent({
         pathParameters: { gameId: 'game-1' },
         body: JSON.stringify({ visibility: 'draft' }),
@@ -225,8 +221,7 @@ describe('GET /games/{gameId}/preview handler', () => {
   it('returns 200 for owner with draft game', async () => {
     mockSend.mockResolvedValueOnce({ Item: mockGame });
 
-    const { handler } = await import('../../src/handlers/games/preview-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await previewGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(200);
   });
@@ -234,8 +229,7 @@ describe('GET /games/{gameId}/preview handler', () => {
   it('returns 400 for non-draft game', async () => {
     mockSend.mockResolvedValueOnce({ Item: { ...mockGame, visibility: 'public' } });
 
-    const { handler } = await import('../../src/handlers/games/preview-game');
-    const result = await handler(makeEvent({ pathParameters: { gameId: 'game-1' } }));
+    const result = await previewGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
     expect(result.statusCode).toBe(400);
     const body = JSON.parse(result.body);
@@ -262,8 +256,7 @@ describe('POST /games - transaction conflict behavior', () => {
         Item: { totalGames: 5, gamesThisMonth: 1, currentMonthStart: '2026-04' },
       });
 
-    const { handler } = await import('../../src/handlers/games/create-game');
-    const result = await handler(
+    const result = await createGame(
       makeEvent({
         body: JSON.stringify({
           type: 'choose-me',
