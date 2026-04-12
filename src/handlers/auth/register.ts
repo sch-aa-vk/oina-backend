@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { register } from '../../services/auth.service';
+import { register } from '../../services/auth';
 import { validateRegisterPayload } from '../../utils/validators';
 import { successResponse, lambdaResponse, withErrorHandler } from '../handler.utils';
 

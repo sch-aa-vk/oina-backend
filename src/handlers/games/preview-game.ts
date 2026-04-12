@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { requireAuth } from '../../middleware/auth.middleware';
-import { previewGame } from '../../services/games.service';
+import { previewGame } from '../../services/games';
 import { withErrorHandler, lambdaResponse } from '../handler.utils';
 import { successResponse } from '../../types/responses.types';
 import { Errors } from '../../utils/errors';

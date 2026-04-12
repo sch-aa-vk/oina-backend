@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { validateAccessToken } from '../services/token.service';
+import { validateAccessToken } from '../services/token';
 import { TokenPayload } from '../types/auth.types';
 import { Errors } from '../utils/errors';
 

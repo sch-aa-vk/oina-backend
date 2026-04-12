@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { resetPassword } from '../../services/auth.service';
+import { resetPassword } from '../../services/auth';
 import { validateResetPasswordPayload } from '../../utils/validators';
 import { successResponse, lambdaResponse, withErrorHandler } from '../handler.utils';
 
