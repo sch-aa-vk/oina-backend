@@ -383,10 +383,14 @@ SMTP_FROM=noreply@example.com
 /
 ├── games/
 │   ├── {gameId}/
-│   │   └── assets/
-│   │       ├── images/            # PNG, JPG, GIF
-│   │       ├── audio/             # MP3, WAV (future)
-│   │       └── video/             # MP4 (future)
+│   │   ├── assets/
+│   │   │   ├── images/            # PNG, JPG, GIF (inline game assets)
+│   │   │   ├── audio/             # MP3, WAV (future)
+│   │   │   └── video/             # MP4 (future)
+│   │   └── rewards/
+│   │       ├── {rewardId}.jpg     # Reward image uploaded by creator
+│   │       ├── {rewardId}.mp4     # Reward video message from creator
+│   │       └── {rewardId}.mp3     # Reward audio message from creator
 │   └── ...
 ├── thumbnails/
 │   ├── {gameId}.png               # Auto-generated or uploaded
@@ -399,8 +403,11 @@ SMTP_FROM=noreply@example.com
 **Access Control:**
 - All S3 access proxied through API (no direct CORS)
 - Game assets: 10MB max total per game
-- Supported types: images (now), audio/video (future)
-- Content data stored in DynamoDB (under 100KB expected)
+- Reward media: 50MB max per file (to allow video messages)
+- Supported reward media types: PNG, JPG, GIF, MP4, MP3, WAV, M4A
+- Reward media presigned URLs: **no auth required** (accessible by anonymous players via share link)
+- Presigned URL expiry: 15 minutes
+- Content data (including text rewards) stored in DynamoDB `Games.content`
 
 ---
 
@@ -609,7 +616,7 @@ OTP_EXPIRY_MINUTES=15
 - [ ] Avatar upload (API proxy to S3)
 - [ ] Account deletion (hard delete + cascade games)
 
-### Phase 3: Game Management (NOT DISCUSSED)
+### Phase 3: Game Management (APPROVED - VARIANT 1)
 **Location:** `lib/stacks/OinaBackendStack.ts`
 
 - [ ] Create game with quota validation (5 max, 3/month)
@@ -619,6 +626,295 @@ OTP_EXPIRY_MINUTES=15
 - [ ] Asset upload via API proxy (10MB limit)
 - [ ] Game versions (change log tracking)
 - [ ] Preview endpoint for drafts
+
+#### Phase 3.1 - Variant 1 Mandatory Scope (Implementation Checklist)
+
+**Infrastructure (CDK)**
+- [ ] Add `Games` table (PK: `gameId`) with GSIs:
+   - [ ] `userId-createdAt-index` (PK `userId`, SK `createdAt`)
+   - [ ] `visibility-createdAt-index` (PK `visibility`, SK `createdAt`)
+   - [ ] `visibility-likeCount-index` (PK `visibility`, SK `likeCount`)
+   - [ ] `shareLink-index` (PK `shareLink`)
+   - [ ] `category-likeCount-index` (PK `category`, SK `likeCount`)
+- [ ] Add `GameVersions` table (PK `versionId`) with GSI:
+   - [ ] `gameId-createdAt-index` (PK `gameId`, SK `createdAt`)
+- [ ] Add game Lambda functions in stack:
+   - [ ] `create-game.ts`
+   - [ ] `list-games.ts`
+   - [ ] `get-game.ts`
+   - [ ] `update-game.ts`
+   - [ ] `delete-game.ts`
+   - [ ] `publish-game.ts`
+   - [ ] `unpublish-game.ts`
+   - [ ] `preview-game.ts`
+   - [ ] `list-game-versions.ts`
+- [ ] Add API Gateway routes:
+   - [ ] `POST /games`
+   - [ ] `GET /games`
+   - [ ] `GET /games/{gameId}`
+   - [ ] `PUT /games/{gameId}`
+   - [ ] `DELETE /games/{gameId}`
+   - [ ] `POST /games/{gameId}/publish`
+   - [ ] `POST /games/{gameId}/unpublish`
+   - [ ] `GET /games/{gameId}/preview`
+   - [ ] `GET /games/{gameId}/versions`
+- [ ] Add env vars for game handlers:
+   - [ ] `DYNAMODB_GAMES_TABLE`
+   - [ ] `DYNAMODB_GAME_VERSIONS_TABLE`
+- [ ] Grant IAM read/write permissions for both game tables to game Lambda role
+
+**Backend Domain Model**
+- [ ] Create `src/types/game.types.ts`:
+   - [ ] `GameVisibility = 'draft' | 'private-link' | 'public'`
+   - [ ] `GameType = 'choose-me' | 'guess-by-emoji' | 'crossword'`
+   - [ ] `GameRecord` and `GameVersionRecord`
+   - [ ] DTOs for create/update/publish/list responses
+- [ ] Create `src/services/games.service.ts`:
+   - [ ] `createGame(userId, payload)`
+   - [ ] `listUserGames(userId, cursor?)`
+   - [ ] `getUserGame(userId, gameId)`
+   - [ ] `updateGame(userId, gameId, payload)`
+   - [ ] `deleteGame(userId, gameId)`
+   - [ ] `publishGame(userId, gameId, visibility)`
+   - [ ] `unpublishGame(userId, gameId)`
+   - [ ] `listGameVersions(userId, gameId)`
+- [ ] Create `src/utils/game-validators.ts` for payload validation by `type`
+
+**Auth and Ownership**
+- [ ] Reuse existing auth middleware to extract `userId`
+- [ ] For every game endpoint, enforce owner check (`game.userId === auth.userId`)
+- [ ] Return `403 FORBIDDEN` for non-owner access, `404` if game does not exist
+
+**Quota Logic (critical)**
+- [ ] Enforce limits during `POST /games`:
+   - [ ] Max active games per user: 5
+   - [ ] Max created games in rolling month bucket: 3
+- [ ] Keep user counters in `Users` table:
+   - [ ] `totalGames`
+   - [ ] `gamesThisMonth`
+   - [ ] `currentMonthStart` (`YYYY-MM`)
+- [ ] Implement month rollover logic:
+   - [ ] If current `YYYY-MM` differs from `currentMonthStart`, reset `gamesThisMonth` to 0 before increment
+- [ ] Use DynamoDB `TransactWriteItems` for atomic create flow:
+   - [ ] conditional update on `Users`
+   - [ ] insert game record in `Games`
+   - [ ] insert initial version record in `GameVersions`
+
+**Versioning Rules (MVP)**
+- [ ] Create version `1` when game is first created
+- [ ] On each successful update/publish/unpublish create new version record with:
+   - [ ] `versionNumber = previous + 1`
+   - [ ] `changeLog` from request or default auto-message
+   - [ ] `visibility` snapshot
+- [ ] Keep latest content only in `Games`; `GameVersions` stores metadata snapshots for history list
+
+**Visibility and Share Rules**
+- [ ] Allowed state transitions:
+   - [ ] `draft -> private-link`
+   - [ ] `draft -> public`
+   - [ ] `private-link -> public`
+   - [ ] `public -> private-link`
+   - [ ] `private-link/public -> draft` (unpublish)
+- [ ] On first publish to `private-link` or `public`:
+   - [ ] set `publishedAt` if empty
+   - [ ] generate stable `shareLink` UUID if empty
+- [ ] `GET /games/{gameId}/preview` available only for owner and only for `draft` state
+
+**Rewards System — data model must be included in Phase 3.1**
+
+Vision: the game creator attaches rewards to their game at creation/edit time.
+The player is anonymous. Scoring and reward unlock logic runs entirely client-side.
+The backend stores reward definitions as part of `content` and serves reward media via presigned S3 URLs (no player account required).
+
+Two reward types:
+1. **Text reward** — inline in `content`, delivered with the game payload. No extra backend calls.
+2. **Media reward** (photo/video/audio) — stored in S3 under `games/{gameId}/rewards/`, served via a public-safe presigned URL endpoint.
+
+Reward unlock model: each reward has a `pointsThreshold` (integer ≥ 0). The client calculates the player's score, finds the highest threshold the player met, and displays that reward. Threshold `0` means "shown on any completion".
+
+Content extension for rewards (applies to all game types):
+```json
+"rewards": [
+  {
+    "id": "r1",
+    "pointsThreshold": 0,
+    "label": "You finished!",
+    "type": "text",
+    "text": "Happy Birthday! 🎂"
+  },
+  {
+    "id": "r2",
+    "pointsThreshold": 80,
+    "label": "Champion!",
+    "type": "image",
+    "assetKey": "games/{gameId}/rewards/r2.jpg"
+  },
+  {
+    "id": "r3",
+    "pointsThreshold": 100,
+    "label": "Perfect score!",
+    "type": "video",
+    "assetKey": "games/{gameId}/rewards/r3.mp4"
+  }
+]
+```
+
+Scoring config (per game type):
+```json
+"scoring": {
+  "enabled": true,
+  "maxScore": 100
+}
+```
+
+Rules:
+- [ ] `rewards` is an optional array in `content` (max 5 rewards per game)
+- [ ] `scoring.enabled: false` → rewards only show on completion (threshold ignored)
+- [ ] `scoring.enabled: true` → rewards shown based on score threshold
+- [ ] Text rewards are stored inline in `content`, no S3 upload needed
+- [ ] Media reward `assetKey` is filled automatically by the backend after upload (Phase 3.2)
+- [ ] When game is deleted, all reward media assets under `games/{gameId}/rewards/` are deleted from S3
+- [ ] Phase 3.1 scope: text rewards only (full structure defined now to avoid schema breaking changes)
+- [ ] Phase 3.2 scope: media reward upload + presigned URL endpoint
+
+**New API endpoint for media reward access (Phase 3.2)**
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|-----------------|
+| GET | `/games/share/{shareLink}/rewards/{rewardId}/media` | Get presigned S3 URL for reward media (anonymous access) | ❌ |
+| POST | `/games/{gameId}/rewards/{rewardId}/upload` | Upload reward media asset | ✅ |
+
+---
+
+**Create Game Contract (to align frontend and backend)**
+
+Request: `POST /games`
+```json
+{
+   "type": "choose-me",
+   "title": "How well do you know me?",
+   "description": "Birthday surprise game",
+   "category": "quiz",
+   "tags": ["birthday", "friends"],
+   "content": {
+      "recipient": { "name": "Sarah", "occasion": "Birthday" },
+      "personalMessage": "Let's play!",
+      "questions": [],
+      "scoring": { "enabled": false },
+      "rewards": [
+         {
+            "id": "r1",
+            "pointsThreshold": 0,
+            "label": "You did it!",
+            "type": "text",
+            "text": "Happy Birthday Sarah! 🎂"
+         }
+      ]
+   }
+}
+```
+
+Response: `201`
+```json
+{
+   "statusCode": 201,
+   "message": "Game created",
+   "timestamp": "2026-04-12T10:00:00.000Z",
+   "data": {
+      "gameId": "uuid",
+      "userId": "uuid",
+      "type": "choose-me",
+      "title": "How well do you know me?",
+      "visibility": "draft",
+      "createdAt": "2026-04-12T10:00:00.000Z",
+      "updatedAt": "2026-04-12T10:00:00.000Z",
+      "content": {}
+   }
+}
+```
+
+Validation rules:
+- [ ] `title` required, trim, length 1..120
+- [ ] `description` optional, max 1000
+- [ ] `type` required enum: `choose-me | guess-by-emoji | crossword`
+- [ ] `content` required, max serialized size 100KB
+- [ ] `tags` max 10, each tag length 1..30
+- [ ] `content.rewards` optional array, max 5 items
+- [ ] each reward: `id`, `pointsThreshold` (0..100000), `label` (1..80), `type` (`text` | `image` | `video` | `audio`)
+- [ ] text reward: `text` required, max 2000 chars
+- [ ] media reward (`image`/`video`/`audio`): `assetKey` is set by backend after upload, not accepted from client
+- [ ] `content.scoring.enabled` boolean, optional (default false)
+
+Error codes for create endpoint:
+- [ ] `QUOTA_TOTAL_GAMES_EXCEEDED`
+- [ ] `QUOTA_MONTHLY_GAMES_EXCEEDED`
+- [ ] `INVALID_GAME_PAYLOAD`
+- [ ] `CONTENT_TOO_LARGE`
+- [ ] `UNAUTHORIZED`
+- [ ] `INVALID_REWARD_PAYLOAD`
+
+**Handler File Plan**
+- [ ] `src/handlers/games/create-game.ts`
+- [ ] `src/handlers/games/list-games.ts`
+- [ ] `src/handlers/games/get-game.ts`
+- [ ] `src/handlers/games/update-game.ts`
+- [ ] `src/handlers/games/delete-game.ts`
+- [ ] `src/handlers/games/publish-game.ts`
+- [ ] `src/handlers/games/unpublish-game.ts`
+- [ ] `src/handlers/games/preview-game.ts`
+- [ ] `src/handlers/games/list-game-versions.ts`
+
+**OpenAPI / Docs**
+- [ ] Extend `openapi.ts` with `Games` tag and schemas:
+   - [ ] `CreateGameRequest`
+   - [ ] `UpdateGameRequest`
+   - [ ] `PublishGameRequest`
+   - [ ] `GameResponse`
+   - [ ] `GameListResponse`
+   - [ ] `VersionResponse`
+- [ ] Add all Phase 3 endpoint definitions and examples
+
+**Testing (must-have before merge)**
+- [ ] Unit tests for service methods:
+   - [ ] quota pass/fail
+   - [ ] month rollover
+   - [ ] ownership checks
+   - [ ] visibility transitions
+   - [ ] version incrementing
+- [ ] Integration tests for handlers (happy path + critical errors)
+- [ ] At least one test covering DynamoDB transaction conflict/retry behavior
+
+**Operational safeguards**
+- [ ] CloudWatch structured logs for all game handlers:
+   - [ ] `requestId`, `userId`, `gameId`, `operation`, `errorCode`
+- [ ] API Gateway throttling for write endpoints
+- [ ] Idempotency strategy for `POST /games` (optional for MVP, required before production)
+
+**Frontend Handoff (develop branch alignment)**
+- [ ] Frontend will call `POST /games` from publish step handlers
+- [ ] Frontend stores returned `gameId` and uses `PUT /games/{gameId}` for edits
+- [ ] Frontend publish button calls `POST /games/{gameId}/publish`
+- [ ] Keep response envelope format compatible with existing interceptor (`data` wrapper)
+- [ ] Frontend includes `content.rewards` and `content.scoring` fields when building the game payload
+- [ ] Text rewards are sent inline; media rewards are uploaded separately via Phase 3.2 endpoint
+
+#### Phase 3.2 - Reward Media Uploads (PLANNED, implement after 3.1)
+**Location:** `lib/stacks/OinaBackendStack.ts`
+
+- [ ] S3 bucket path: `games/{gameId}/rewards/{rewardId}.{ext}`
+- [ ] Lambda: `upload-reward-media.ts` — creator uploads image/video/audio for a reward
+  - [ ] Auth required, owner-only
+  - [ ] Max file size: 50 MB (larger than game assets to allow video messages)
+  - [ ] Allowed types: PNG, JPG, GIF, MP4, MP3, WAV, M4A
+  - [ ] After upload: writes `assetKey` into `content.rewards[id].assetKey` via `PUT /games/{gameId}`
+- [ ] Lambda: `get-reward-media.ts` — returns a 15-min presigned S3 URL for reward media
+  - [ ] **No auth required** (anonymous player access)
+  - [ ] Accessed by shareLink (not gameId) to prevent guessing
+  - [ ] Endpoint: `GET /games/share/{shareLink}/rewards/{rewardId}/media`
+  - [ ] Validates that game visibility is `private-link` or `public`
+  - [ ] Validates that `rewardId` exists in game `content.rewards`
+- [ ] On game delete: delete all objects under `games/{gameId}/rewards/` from S3
+- [ ] env vars: `S3_GAME_ASSETS_BUCKET` (reuse existing bucket, add `/rewards/` prefix)
 
 ### Phase 4: Discovery & Interaction (NOT DISCUSSED)
 **Location:** `lib/stacks/OinaBackendStack.ts`
@@ -649,25 +945,45 @@ OTP_EXPIRY_MINUTES=15
 
 ## 11. EXAMPLE GAME DATA STRUCTURES
 
-### Quiz/Choice Game ("Choose Me")
+> All game types share a common `scoring` and `rewards` envelope in `content`.
+> Both are optional. Text rewards are stored inline; media rewards reference S3 keys.
+
+### Quiz/Choice Game ("Choose Me") — with scoring + rewards
 ```json
 {
-  "type": "quiz",
-  "title": "Which Character Are You?",
-  "questions": [
-    {
-      "id": "q1",
-      "text": "Your ideal weekend?",
-      "options": [
-        {"id": "a", "text": "Reading a book", "weight": {"result1": 2}},
-        {"id": "b", "text": "Party with friends", "weight": {"result2": 2}}
-      ]
-    }
-  ],
-  "results": [
-    {"id": "result1", "title": "The Thinker", "description": "..."},
-    {"id": "result2", "title": "The Socialite", "description": "..."}
-  ]
+  "type": "choose-me",
+  "title": "How well do you know me?",
+  "content": {
+    "recipient": { "name": "Sarah", "occasion": "Birthday" },
+    "personalMessage": "Let's see how well you know me 🎂",
+    "questions": [
+      {
+        "id": "q1",
+        "text": "What's my favourite colour?",
+        "options": [
+          {"id": "a", "text": "Blue", "correct": true, "points": 10},
+          {"id": "b", "text": "Red", "correct": false, "points": 0}
+        ]
+      }
+    ],
+    "scoring": { "enabled": true, "maxScore": 100 },
+    "rewards": [
+      {
+        "id": "r1",
+        "pointsThreshold": 0,
+        "label": "You finished!",
+        "type": "text",
+        "text": "Thanks for playing! 🎉"
+      },
+      {
+        "id": "r2",
+        "pointsThreshold": 80,
+        "label": "Amazing score!",
+        "type": "video",
+        "assetKey": "games/abc-123/rewards/r2.mp4"
+      }
+    ]
+  }
 }
 ```
 
@@ -676,32 +992,71 @@ OTP_EXPIRY_MINUTES=15
 {
   "type": "crossword",
   "title": "My Crossword",
-  "grid": {
-    "rows": 10,
-    "cols": 10,
-    "cells": [[{"char": "A", "number": 1}, ...]]
-  },
-  "clues": {
-    "across": [{"number": 1, "clue": "Capital of France", "answer": "PARIS"}],
-    "down": [{"number": 2, "clue": "...", "answer": "..."}]
+  "content": {
+    "recipient": { "name": "Jamie", "occasion": "Anniversary" },
+    "personalMessage": "Solve our story 💛",
+    "grid": {
+      "rows": 10,
+      "cols": 10,
+      "cells": [[{"char": "A", "number": 1}]]
+    },
+    "clues": {
+      "across": [{"number": 1, "clue": "Capital of France", "answer": "PARIS"}],
+      "down": [{"number": 2, "clue": "...", "answer": "..."}]
+    },
+    "scoring": { "enabled": true, "maxScore": 100 },
+    "rewards": [
+      {
+        "id": "r1",
+        "pointsThreshold": 0,
+        "label": "Finished!",
+        "type": "text",
+        "text": "You're amazing! 🧩"
+      },
+      {
+        "id": "r2",
+        "pointsThreshold": 100,
+        "label": "Perfect!",
+        "type": "image",
+        "assetKey": "games/xyz-789/rewards/r2.jpg"
+      }
+    ]
   }
 }
 ```
 
-### Emoji Choice Game
+### Guess By Emoji Game
 ```json
 {
-  "type": "emoji-choice",
-  "title": "Pick Your Mood",
-  "options": [
-    {"emoji": "😊", "result": "You're feeling happy!"},
-    {"emoji": "😢", "result": "You're feeling sad!"}
-  ]
+  "type": "guess-by-emoji",
+  "title": "Guess our memories!",
+  "content": {
+    "recipient": { "name": "Alex", "occasion": "Graduation" },
+    "personalMessage": "Each puzzle is a memory 🎓",
+    "puzzles": [
+      {
+        "id": "p1",
+        "emojis": ["🗼", "🥐", "☕"],
+        "answer": "Paris trip",
+        "difficulty": "easy"
+      }
+    ],
+    "showAnswers": true,
+    "scoring": { "enabled": true, "maxScore": 100 },
+    "rewards": [
+      {
+        "id": "r1",
+        "pointsThreshold": 0,
+        "label": "Done!",
+        "type": "audio",
+        "assetKey": "games/def-456/rewards/r1.mp3"
+      }
+    ]
+  }
 }
 ```
 
-**Note:** Player progress stored in browser localStorage (no backend tracking)
-```
+**Note:** Player progress and score calculation run in browser only (no backend tracking). Backend stores reward definitions and serves reward media via presigned URLs.
 
 ---
 
@@ -716,6 +1071,44 @@ OTP_EXPIRY_MINUTES=15
 | **API Gateway** | $3.50+ | $3.50 per million requests |
 | **CloudWatch** | $5-15 | Logs and monitoring |
 | **Total** | **$58-140** | Scales with usage |
+
+---
+
+## 13. EXECUTION ORDER FOR AGENT (VARIANT 1)
+
+Use this order to avoid rework and broken deploys.
+
+**Phase 3.1 (implement fully first)**
+1. Implement CDK tables + env vars + IAM grants for game resources.
+2. Implement game types + validators + service logic.
+3. Implement `POST /games` handler first (with full quota transaction, text rewards + scoring schema included in content from day 1).
+4. Implement `GET /games` and `GET /games/{gameId}`.
+5. Implement `PUT /games/{gameId}` and version incrementing.
+6. Implement publish/unpublish + share link behavior.
+7. Implement delete + counter decrement consistency + reward media cleanup stub.
+8. Add versions and preview endpoints.
+9. Update OpenAPI schemas and endpoint docs.
+10. Add/finish tests, run build and tests, then deploy to dev.
+
+**Phase 3.2 (after 3.1 is deployed)**
+11. Implement S3 reward media upload endpoint (creator, auth required).
+12. Implement presigned URL endpoint for reward media (anonymous, by shareLink).
+13. Add reward media cleanup to game delete flow.
+14. Add tests for media upload and anonymous access.
+
+### Definition of Done (Phase 3.1)
+- [ ] All Phase 3.1 checklist items are completed.
+- [ ] `content.rewards` and `content.scoring` fields are accepted and stored correctly for text rewards.
+- [ ] `POST /games` is consumed successfully by frontend develop branch.
+- [ ] No auth regression for existing `/auth/*` endpoints.
+- [ ] Build/test pipeline is green.
+- [ ] API docs updated and deployed.
+
+### Definition of Done (Phase 3.2)
+- [ ] Creator can upload an image/video/audio file as a reward asset.
+- [ ] Anonymous player can get a presigned URL for reward media via shareLink.
+- [ ] Game delete cascades to reward media in S3.
+- [ ] Tests cover anonymous access and creator-only upload.
 
 ---
 

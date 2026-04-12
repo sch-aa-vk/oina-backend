@@ -34,4 +34,22 @@ export const Errors = {
     new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', details),
 
   INTERNAL_ERROR: () => new AppError(500, 'INTERNAL_ERROR', 'An internal server error occurred'),
+
+  // Game errors
+  GAME_NOT_FOUND: () => new AppError(404, 'GAME_NOT_FOUND', 'Game not found'),
+  GAME_FORBIDDEN: () => new AppError(403, 'GAME_FORBIDDEN', 'You do not have access to this game'),
+  QUOTA_TOTAL_GAMES_EXCEEDED: () =>
+    new AppError(409, 'QUOTA_TOTAL_GAMES_EXCEEDED', 'You have reached the maximum of 5 games'),
+  QUOTA_MONTHLY_GAMES_EXCEEDED: () =>
+    new AppError(409, 'QUOTA_MONTHLY_GAMES_EXCEEDED', 'You have reached the limit of 3 games per month'),
+  INVALID_GAME_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_GAME_PAYLOAD', 'Invalid game payload', details),
+  CONTENT_TOO_LARGE: () =>
+    new AppError(413, 'CONTENT_TOO_LARGE', 'Game content exceeds the maximum allowed size of 100KB'),
+  INVALID_REWARD_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_REWARD_PAYLOAD', 'Invalid reward payload', details),
+  INVALID_VISIBILITY_TRANSITION: (from: string, to: string) =>
+    new AppError(400, 'INVALID_VISIBILITY_TRANSITION', `Cannot transition from '${from}' to '${to}'`),
+  PREVIEW_ONLY_FOR_DRAFT: () =>
+    new AppError(400, 'PREVIEW_ONLY_FOR_DRAFT', 'Preview is only available for draft games'),
 };

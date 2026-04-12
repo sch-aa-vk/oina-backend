@@ -104,6 +104,51 @@ export class OinaBackendStack extends cdk.Stack {
 			sortKey: { name: 'blacklistedAt', type: dynamodb.AttributeType.STRING },
 		});
 
+		// ── Phase 3: Games tables ──────────────────────────────────────────────────
+
+		const gamesTable = new dynamodb.Table(this, `GamesTable${stageName}`, {
+			tableName: `oina-games-${stageName}`,
+			partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+		gamesTable.addGlobalSecondaryIndex({
+			indexName: 'userId-createdAt-index',
+			partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+		});
+		gamesTable.addGlobalSecondaryIndex({
+			indexName: 'visibility-createdAt-index',
+			partitionKey: { name: 'visibility', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+		});
+		gamesTable.addGlobalSecondaryIndex({
+			indexName: 'visibility-likeCount-index',
+			partitionKey: { name: 'visibility', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'likeCount', type: dynamodb.AttributeType.NUMBER },
+		});
+		gamesTable.addGlobalSecondaryIndex({
+			indexName: 'shareLink-index',
+			partitionKey: { name: 'shareLink', type: dynamodb.AttributeType.STRING },
+		});
+		gamesTable.addGlobalSecondaryIndex({
+			indexName: 'category-likeCount-index',
+			partitionKey: { name: 'category', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'likeCount', type: dynamodb.AttributeType.NUMBER },
+		});
+
+		const gameVersionsTable = new dynamodb.Table(this, `GameVersionsTable${stageName}`, {
+			tableName: `oina-game-versions-${stageName}`,
+			partitionKey: { name: 'versionId', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+		gameVersionsTable.addGlobalSecondaryIndex({
+			indexName: 'gameId-createdAt-index',
+			partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+		});
+
 		const authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
 			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
 		});
@@ -132,6 +177,23 @@ export class OinaBackendStack extends cdk.Stack {
 			})
 		);
 
+		// ── Phase 3: Game Lambda IAM role ──────────────────────────────────────────
+
+		const gameLambdaRole = new iam.Role(this, `GameLambdaRole${stageName}`, {
+			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+		});
+		gameLambdaRole.addManagedPolicy(
+			iam.ManagedPolicy.fromManagedPolicyArn(
+				this,
+				`GameLambdaBasicExecutionPolicy${stageName}`,
+				`arn:${cdk.Aws.PARTITION}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+			)
+		);
+		usersTable.grantReadWriteData(gameLambdaRole);
+		gamesTable.grantReadWriteData(gameLambdaRole);
+		gameVersionsTable.grantReadWriteData(gameLambdaRole);
+		tokenBlacklistTable.grantReadData(gameLambdaRole);
+
 		const sharedEnv: Record<string, string> = {
 			STAGE_NAME: stageName,
 			DYNAMODB_USERS_TABLE: usersTable.tableName,
@@ -145,6 +207,12 @@ export class OinaBackendStack extends cdk.Stack {
 			SMTP_USER: smtpUser,
 			SMTP_PASSWORD: smtpPassword,
 			SMTP_FROM: smtpFrom,
+		};
+
+		const gameEnv: Record<string, string> = {
+			...sharedEnv,
+			DYNAMODB_GAMES_TABLE: gamesTable.tableName,
+			DYNAMODB_GAME_VERSIONS_TABLE: gameVersionsTable.tableName,
 		};
 
 		const createAuthLambda = (id: string, entry: string) =>
@@ -204,6 +272,35 @@ export class OinaBackendStack extends cdk.Stack {
 			environment: sharedEnv,
 		});
 
+		// ── Phase 3: Game Lambda functions ─────────────────────────────────────────
+
+		const createGameLambda = (id: string, entry: string) =>
+			new lambdaNodejs.NodejsFunction(this, `${id}${stageName}`, {
+				functionName: `oina-game-${id.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
+				entry: path.join(__dirname, '../src/handlers/games', entry),
+				handler: 'handler',
+				runtime: lambda.Runtime.NODEJS_20_X,
+				role: gameLambdaRole,
+				timeout: cdk.Duration.seconds(30),
+				memorySize: 256,
+				bundling: {
+					minify: false,
+					sourceMap: true,
+					externalModules: [],
+				},
+				environment: gameEnv,
+			});
+
+		const createGameFn = createGameLambda('CreateGameLambda', 'create-game.ts');
+		const listGamesFn = createGameLambda('ListGamesLambda', 'list-games.ts');
+		const getGameFn = createGameLambda('GetGameLambda', 'get-game.ts');
+		const updateGameFn = createGameLambda('UpdateGameLambda', 'update-game.ts');
+		const deleteGameFn = createGameLambda('DeleteGameLambda', 'delete-game.ts');
+		const publishGameFn = createGameLambda('PublishGameLambda', 'publish-game.ts');
+		const unpublishGameFn = createGameLambda('UnpublishGameLambda', 'unpublish-game.ts');
+		const previewGameFn = createGameLambda('PreviewGameLambda', 'preview-game.ts');
+		const listGameVersionsFn = createGameLambda('ListGameVersionsLambda', 'list-game-versions.ts');
+
 		const api = new apigateway.RestApi(this, `OinaApi${stageName}`, {
 			restApiName: `oina-api-${stageName}`,
 			description: 'OINA Backend API',
@@ -241,6 +338,22 @@ export class OinaBackendStack extends cdk.Stack {
 		addPost(authResource, 'validate-token', validateTokenFn);
 		addGet(api.root, 'docs', docsUiFn);
 		addGet(api.root, 'openapi.json', openApiFn);
+
+		// ── Phase 3: Games routes ──────────────────────────────────────────────────
+
+		const gamesResource = api.root.addResource('games');
+		gamesResource.addMethod('POST', new apigateway.LambdaIntegration(createGameFn));
+		gamesResource.addMethod('GET', new apigateway.LambdaIntegration(listGamesFn));
+
+		const gameIdResource = gamesResource.addResource('{gameId}');
+		gameIdResource.addMethod('GET', new apigateway.LambdaIntegration(getGameFn));
+		gameIdResource.addMethod('PUT', new apigateway.LambdaIntegration(updateGameFn));
+		gameIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(deleteGameFn));
+
+		gameIdResource.addResource('publish').addMethod('POST', new apigateway.LambdaIntegration(publishGameFn));
+		gameIdResource.addResource('unpublish').addMethod('POST', new apigateway.LambdaIntegration(unpublishGameFn));
+		gameIdResource.addResource('preview').addMethod('GET', new apigateway.LambdaIntegration(previewGameFn));
+		gameIdResource.addResource('versions').addMethod('GET', new apigateway.LambdaIntegration(listGameVersionsFn));
 
 		if (domainName && certificateArn && hostedZoneId && hostedZoneName) {
 			const certificate = certificatemanager.Certificate.fromCertificateArn(
