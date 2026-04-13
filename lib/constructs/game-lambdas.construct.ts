@@ -32,7 +32,7 @@ export class GameLambdasConstruct extends Construct {
 				functionName: `oina-game-${fnId.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
 				entry: path.join(__dirname, '../../src/handlers/games', entry),
 				handler: 'handler',
-				runtime: lambda.Runtime.NODEJS_20_X,
+				runtime: lambda.Runtime.NODEJS_22_X,
 				role,
 				timeout: cdk.Duration.seconds(30),
 				memorySize: 256,
