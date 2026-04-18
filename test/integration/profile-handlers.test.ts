@@ -15,6 +15,13 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   QueryCommand: jest.fn(),
   UpdateCommand: jest.fn(),
 }));
+jest.mock('@aws-sdk/client-s3', () => ({
+  S3Client: jest.fn().mockImplementation(() => ({})),
+  GetObjectCommand: jest.fn(),
+}));
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn().mockResolvedValue('https://presigned.s3.amazonaws.com/avatars/user-1?X-Amz-Signature=abc'),
+}));
 
 const mockValidateAccessToken = jest.fn();
 jest.mock('@src/services/token', () => ({
@@ -37,7 +44,7 @@ const mockUser = {
   username: 'alice',
   displayName: 'Alice',
   bio: 'Hello',
-  avatarUrl: 'https://example.com/avatar.png',
+  avatarUrl: 'avatars/user-1',
   isVerified: true,
   totalGames: 2,
   gamesThisMonth: 1,
@@ -55,6 +62,11 @@ beforeEach(() => {
     type: 'access',
   });
   process.env.DYNAMODB_USERS_TABLE = 'oina-users-test';
+  process.env.AVATAR_BUCKET_NAME = 'oina-avatars-test';
+  process.env.AWS_REGION = 'us-east-1';
+
+  const { getSignedUrl } = jest.requireMock('@aws-sdk/s3-request-presigner');
+  getSignedUrl.mockResolvedValue('https://presigned.s3.amazonaws.com/avatars/user-1?X-Amz-Signature=abc');
 });
 
 // ── GET /users/me ─────────────────────────────────────────────────────────────
@@ -71,6 +83,7 @@ describe('GET /users/me', () => {
     expect(body.data.userId).toBe('user-1');
     expect(body.data.email).toBe('alice@example.com');
     expect(body.data.totalGames).toBe(2);
+    expect(body.data.avatarUrl).toContain('presigned.s3.amazonaws.com');
   });
 
   it('returns 401 when token is missing', async () => {

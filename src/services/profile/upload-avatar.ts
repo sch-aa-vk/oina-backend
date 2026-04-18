@@ -33,15 +33,15 @@ export const generateAvatarUploadUrl = async (
     { expiresIn: PRESIGNED_URL_EXPIRY_SECONDS }
   );
 
-  const avatarUrl = `https://${bucketName}.s3.amazonaws.com/${key}`;
   const now = new Date().toISOString();
 
+  // Store the S3 key in DB; presigned GET URLs are generated on profile fetch
   await docClient.send(new UpdateCommand({
     TableName: USERS_TABLE,
     Key: { userId },
-    UpdateExpression: 'SET avatarUrl = :avatarUrl, updatedAt = :now',
-    ExpressionAttributeValues: { ':avatarUrl': avatarUrl, ':now': now },
+    UpdateExpression: 'SET avatarUrl = :key, updatedAt = :now',
+    ExpressionAttributeValues: { ':key': key, ':now': now },
   }));
 
-  return { presignedUrl, avatarUrl };
+  return { presignedUrl, avatarUrl: key };
 };

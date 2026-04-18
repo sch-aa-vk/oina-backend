@@ -41,6 +41,7 @@ export class IamConstruct extends Construct {
 		otpCodesTable.grantReadWriteData(this.authLambdaRole);
 		tokenBlacklistTable.grantReadWriteData(this.authLambdaRole);
 		avatarBucket.grantPut(this.authLambdaRole);
+		avatarBucket.grantRead(this.authLambdaRole);
 
 		this.authLambdaRole.addToPolicy(
 			new iam.PolicyStatement({

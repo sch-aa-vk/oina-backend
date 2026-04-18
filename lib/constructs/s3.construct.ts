@@ -16,11 +16,10 @@ export class S3Construct extends Construct {
 
 		this.avatarBucket = new s3.Bucket(this, `AvatarBucket${stageName}`, {
 			bucketName: `oina-avatars-${stageName}`,
-			publicReadAccess: true,
-			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ACLS,
+			blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
 			cors: [
 				{
-					allowedMethods: [s3.HttpMethods.PUT],
+					allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
 					allowedOrigins: ['*'],
 					allowedHeaders: ['*'],
 					maxAge: 3000,

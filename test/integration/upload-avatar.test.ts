@@ -69,7 +69,7 @@ describe('POST /users/me/avatar', () => {
     const body = JSON.parse(result.body);
     expect(body.message).toBe('Avatar upload URL generated');
     expect(body.data.presignedUrl).toContain('presigned.s3.amazonaws.com');
-    expect(body.data.avatarUrl).toBe('https://oina-avatars-test.s3.amazonaws.com/avatars/user-1');
+    expect(body.data.avatarUrl).toBe('avatars/user-1');
   });
 
   it('returns 200 for image/png contentType', async () => {
