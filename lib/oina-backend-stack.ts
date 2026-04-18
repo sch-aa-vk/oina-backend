@@ -7,6 +7,7 @@ import { CognitoConstruct } from './constructs/cognito.construct';
 import { DynamoDbConstruct } from './constructs/dynamodb.construct';
 import { GameLambdasConstruct } from './constructs/game-lambdas.construct';
 import { IamConstruct } from './constructs/iam.construct';
+import { S3Construct } from './constructs/s3.construct';
 
 export class OinaBackendStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -19,6 +20,8 @@ export class OinaBackendStack extends cdk.Stack {
 
 		const dynamoDbConstruct = new DynamoDbConstruct(this, 'DynamoDb', { stageName });
 
+		const s3Construct = new S3Construct(this, 'S3', { stageName });
+
 		const iamConstruct = new IamConstruct(this, 'Iam', {
 			stageName,
 			usersTable: dynamoDbConstruct.usersTable,
@@ -27,11 +30,13 @@ export class OinaBackendStack extends cdk.Stack {
 			gamesTable: dynamoDbConstruct.gamesTable,
 			gameVersionsTable: dynamoDbConstruct.gameVersionsTable,
 			userPool: cognitoConstruct.userPool,
+			avatarBucket: s3Construct.avatarBucket,
 		});
 
 		const sharedEnv: Record<string, string> = {
 			STAGE_NAME: stageName,
 			DYNAMODB_USERS_TABLE: dynamoDbConstruct.usersTable.tableName,
+			AVATAR_BUCKET_NAME: s3Construct.avatarBucket.bucketName,
 			DYNAMODB_OTP_TABLE: dynamoDbConstruct.otpCodesTable.tableName,
 			DYNAMODB_BLACKLIST_TABLE: dynamoDbConstruct.tokenBlacklistTable.tableName,
 			COGNITO_USER_POOL_ID: cognitoConstruct.userPool.userPoolId,

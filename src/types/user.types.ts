@@ -29,3 +29,9 @@ export interface PublicUserProfile {
   totalGames: number;
   createdAt: string;
 }
+
+export interface UpdateProfilePayload {
+  displayName?: string;
+  bio?: string;
+  username?: string;
+}

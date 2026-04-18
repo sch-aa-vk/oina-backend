@@ -68,6 +68,12 @@ export class ApiConstruct extends Construct {
 		this.addPost(authResource, 'validate-token', authLambdas.validateTokenFn);
 		this.addGet(this.api.root, 'docs', authLambdas.docsUiFn);
 		this.addGet(this.api.root, 'openapi.json', authLambdas.openApiFn);
+
+		const usersResource = this.api.root.addResource('users');
+		const meResource = usersResource.addResource('me');
+		meResource.addMethod('GET', new apigateway.LambdaIntegration(authLambdas.getMeProfileFn));
+		meResource.addMethod('PATCH', new apigateway.LambdaIntegration(authLambdas.updateMeProfileFn));
+		meResource.addResource('avatar').addMethod('POST', new apigateway.LambdaIntegration(authLambdas.uploadAvatarFn));
 	}
 
 	private buildGameRoutes(gameLambdas: GameLambdasConstruct) {

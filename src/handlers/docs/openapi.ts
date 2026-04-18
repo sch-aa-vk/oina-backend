@@ -9,7 +9,7 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
       description: 'Authentication API for OINA backend.',
     },
     servers: [{ url: '/' }],
-    tags: [{ name: 'Auth' }, { name: 'Games' }],
+    tags: [{ name: 'Auth' }, { name: 'Users' }, { name: 'Games' }],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -113,6 +113,33 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
               additionalProperties: true,
               example: { email: 'Email is required' },
             },
+          },
+        },
+        // ── Profile schemas ───────────────────────────────────────────────────
+        UpdateProfileRequest: {
+          type: 'object',
+          properties: {
+            displayName: { type: 'string', minLength: 1, maxLength: 100, nullable: true, example: 'Alice' },
+            bio: { type: 'string', maxLength: 500, nullable: true, example: 'Loves games and APIs.' },
+            username: { type: 'string', minLength: 3, maxLength: 30, pattern: '^[a-zA-Z0-9_]+$', nullable: true, example: 'alice_42' },
+          },
+        },
+        AvatarUploadRequest: {
+          type: 'object',
+          required: ['contentType'],
+          properties: {
+            contentType: {
+              type: 'string',
+              enum: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+              example: 'image/jpeg',
+            },
+          },
+        },
+        AvatarUploadResponse: {
+          type: 'object',
+          properties: {
+            presignedUrl: { type: 'string', example: 'https://oina-avatars-dev.s3.amazonaws.com/avatars/user-id?X-Amz-...' },
+            avatarUrl: { type: 'string', example: 'https://oina-avatars-dev.s3.amazonaws.com/avatars/user-id' },
           },
         },
         // ── Games schemas ─────────────────────────────────────────────────────
@@ -671,6 +698,129 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
       },
       '/openapi.json': {
         get: { summary: 'OpenAPI spec JSON', responses: { '200': { description: 'OK' } } },
+      },
+      // ── User profile endpoints ───────────────────────────────────────────────
+      '/users/me': {
+        get: {
+          tags: ['Users'],
+          summary: 'Get current user profile',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'User profile',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Profile retrieved',
+                    timestamp: '2026-04-18T10:00:00.000Z',
+                    data: {
+                      userId: '9f31ce1d-6d0a-4973-99ed-e5fd755f8121',
+                      email: 'alice@example.com',
+                      username: 'alice',
+                      displayName: 'Alice',
+                      bio: 'Loves games.',
+                      avatarUrl: 'https://example.com/avatar.png',
+                      isVerified: true,
+                      totalGames: 2,
+                      gamesThisMonth: 1,
+                      currentMonthStart: '2026-04',
+                      createdAt: '2026-04-01T10:00:00.000Z',
+                      updatedAt: '2026-04-18T10:00:00.000Z',
+                    },
+                  },
+                },
+              },
+            },
+            '401': { description: 'Missing or invalid token', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '404': { description: 'User not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+        patch: {
+          tags: ['Users'],
+          summary: 'Update current user profile',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/UpdateProfileRequest' },
+                example: { displayName: 'New Name', bio: 'Updated bio' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Updated profile',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Profile updated',
+                    timestamp: '2026-04-18T10:05:00.000Z',
+                    data: {
+                      userId: '9f31ce1d-6d0a-4973-99ed-e5fd755f8121',
+                      email: 'alice@example.com',
+                      displayName: 'New Name',
+                      bio: 'Updated bio',
+                      avatarUrl: 'https://example.com/avatar.png',
+                      isVerified: true,
+                      totalGames: 2,
+                      gamesThisMonth: 1,
+                      currentMonthStart: '2026-04',
+                      createdAt: '2026-04-01T10:00:00.000Z',
+                      updatedAt: '2026-04-18T10:05:00.000Z',
+                    },
+                  },
+                },
+              },
+            },
+            '400': { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '401': { description: 'Missing or invalid token', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '404': { description: 'User not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '409': { description: 'Username taken', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/users/me/avatar': {
+        post: {
+          tags: ['Users'],
+          summary: 'Get a presigned S3 URL to upload a profile image',
+          description: 'Returns a presigned PUT URL. Client must PUT the image file directly to that URL with the matching Content-Type header. The avatarUrl is pre-set on the user record and returned immediately.',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/AvatarUploadRequest' },
+                example: { contentType: 'image/jpeg' },
+              },
+            },
+          },
+          responses: {
+            '200': {
+              description: 'Presigned URL generated',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Avatar upload URL generated',
+                    timestamp: '2026-04-18T10:00:00.000Z',
+                    data: {
+                      presignedUrl: 'https://oina-avatars-dev.s3.amazonaws.com/avatars/user-id?X-Amz-...',
+                      avatarUrl: 'https://oina-avatars-dev.s3.amazonaws.com/avatars/user-id',
+                    },
+                  },
+                },
+              },
+            },
+            '400': { description: 'Invalid contentType', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '401': { description: 'Missing or invalid token', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
       },
       // ── Games endpoints ─────────────────────────────────────────────────────
       '/games': {

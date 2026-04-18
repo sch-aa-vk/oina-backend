@@ -21,6 +21,9 @@ export class AuthLambdasConstruct extends Construct {
 	public readonly forgotPasswordFn: lambdaNodejs.NodejsFunction;
 	public readonly resetPasswordFn: lambdaNodejs.NodejsFunction;
 	public readonly validateTokenFn: lambdaNodejs.NodejsFunction;
+	public readonly getMeProfileFn: lambdaNodejs.NodejsFunction;
+	public readonly updateMeProfileFn: lambdaNodejs.NodejsFunction;
+	public readonly uploadAvatarFn: lambdaNodejs.NodejsFunction;
 	public readonly docsUiFn: lambdaNodejs.NodejsFunction;
 	public readonly openApiFn: lambdaNodejs.NodejsFunction;
 
@@ -55,6 +58,27 @@ export class AuthLambdasConstruct extends Construct {
 		this.forgotPasswordFn = createFn('ForgotPasswordLambda', 'forgot-password.ts');
 		this.resetPasswordFn = createFn('ResetPasswordLambda', 'reset-password.ts');
 		this.validateTokenFn = createFn('ValidateTokenLambda', 'validate-token.ts');
+
+		const createUserFn = (fnId: string, entry: string) =>
+			new lambdaNodejs.NodejsFunction(this, `${fnId}${stageName}`, {
+				functionName: `oina-user-${fnId.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
+				entry: path.join(__dirname, '../../src/handlers/users', entry),
+				handler: 'handler',
+				runtime: lambda.Runtime.NODEJS_22_X,
+				role,
+				timeout: cdk.Duration.seconds(30),
+				memorySize: 256,
+				bundling: {
+					minify: false,
+					sourceMap: true,
+					externalModules: [],
+				},
+				environment,
+			});
+
+		this.getMeProfileFn = createUserFn('GetMeProfileLambda', 'get-me.ts');
+		this.updateMeProfileFn = createUserFn('UpdateMeProfileLambda', 'update-me.ts');
+		this.uploadAvatarFn = createUserFn('UploadAvatarLambda', 'upload-avatar.ts');
 
 		this.docsUiFn = new lambdaNodejs.NodejsFunction(this, `DocsUiLambda${stageName}`, {
 			functionName: `oina-docs-ui-${stageName}`,

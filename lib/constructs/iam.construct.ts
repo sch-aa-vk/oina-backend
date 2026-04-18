@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 interface IamConstructProps {
@@ -12,6 +13,7 @@ interface IamConstructProps {
 	gamesTable: dynamodb.Table;
 	gameVersionsTable: dynamodb.Table;
 	userPool: cognito.UserPool;
+	avatarBucket: s3.Bucket;
 }
 
 export class IamConstruct extends Construct {
@@ -21,7 +23,7 @@ export class IamConstruct extends Construct {
 	constructor(scope: Construct, id: string, props: IamConstructProps) {
 		super(scope, id);
 
-		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, userPool } =
+		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, userPool, avatarBucket } =
 			props;
 
 		this.authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
@@ -38,6 +40,7 @@ export class IamConstruct extends Construct {
 		usersTable.grantReadWriteData(this.authLambdaRole);
 		otpCodesTable.grantReadWriteData(this.authLambdaRole);
 		tokenBlacklistTable.grantReadWriteData(this.authLambdaRole);
+		avatarBucket.grantPut(this.authLambdaRole);
 
 		this.authLambdaRole.addToPolicy(
 			new iam.PolicyStatement({

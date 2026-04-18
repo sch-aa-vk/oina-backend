@@ -52,4 +52,7 @@ export const Errors = {
     new AppError(400, 'INVALID_VISIBILITY_TRANSITION', `Cannot transition from '${from}' to '${to}'`),
   PREVIEW_ONLY_FOR_DRAFT: () =>
     new AppError(400, 'PREVIEW_ONLY_FOR_DRAFT', 'Preview is only available for draft games'),
+
+  // Profile errors
+  USERNAME_TAKEN: () => new AppError(409, 'USERNAME_TAKEN', 'This username is already taken'),
 };
