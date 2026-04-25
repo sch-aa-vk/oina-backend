@@ -7,9 +7,8 @@ import { successResponse } from '../../types/responses.types';
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   return withErrorHandler(async () => {
     const tokenPayload = await requireAuth(event);
-    const cursor = event.queryStringParameters?.cursor;
 
-    const history = await getGameHistory(tokenPayload.userId, cursor);
+    const history = await getGameHistory(tokenPayload.userId);
 
     console.log(JSON.stringify({
       requestId: event.requestContext?.requestId,

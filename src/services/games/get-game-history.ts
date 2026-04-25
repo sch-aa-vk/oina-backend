@@ -2,25 +2,35 @@ import { QueryCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { GameRecord, GameResultRecord, GameHistoryResponse } from '../../types/game.types';
 import { docClient, GAME_RESULTS_TABLE, GAMES_TABLE } from './_client';
 
-const PAGE_SIZE = 20;
+const MAX_UNIQUE_GAMES = 5;
+// Over-fetch so deduplication has enough records to find MAX_UNIQUE_GAMES distinct games
+const FETCH_LIMIT = 100;
 
-export const getGameHistory = async (
-  userId: string,
-  cursor?: string
-): Promise<GameHistoryResponse> => {
+export const getGameHistory = async (userId: string): Promise<GameHistoryResponse> => {
   const result = await docClient.send(new QueryCommand({
     TableName: GAME_RESULTS_TABLE,
     IndexName: 'userId-playedAt-index',
     KeyConditionExpression: 'userId = :userId',
     ExpressionAttributeValues: { ':userId': userId },
     ScanIndexForward: false,
-    Limit: PAGE_SIZE,
-    ...(cursor ? { ExclusiveStartKey: JSON.parse(Buffer.from(cursor, 'base64').toString()) } : {}),
+    Limit: FETCH_LIMIT,
   }));
 
   const records = (result.Items as GameResultRecord[]) ?? [];
 
-  const gameIds = [...new Set(records.map(r => r.gameId))];
+  const bestByGame = new Map<string, GameResultRecord>();
+  for (const record of records) {
+    const existing = bestByGame.get(record.gameId);
+    if (!existing || record.score > existing.score) {
+      bestByGame.set(record.gameId, record);
+    }
+  }
+
+  const deduplicated = [...bestByGame.values()]
+    .sort((a, b) => b.playedAt.localeCompare(a.playedAt))
+    .slice(0, MAX_UNIQUE_GAMES);
+
+  const gameIds = deduplicated.map(r => r.gameId);
   const gameMeta: Record<string, { title: string; isDeleted?: boolean }> = {};
 
   if (gameIds.length > 0) {
@@ -37,7 +47,7 @@ export const getGameHistory = async (
     }
   }
 
-  const results = records.map(r => ({
+  const results = deduplicated.map(r => ({
     gameResultId: r.gameResultId,
     gameId: r.gameId,
     gameTitle: gameMeta[r.gameId]?.title,
@@ -49,9 +59,5 @@ export const getGameHistory = async (
     playedAt: r.playedAt,
   }));
 
-  const nextCursor = result.LastEvaluatedKey
-    ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-    : undefined;
-
-  return { results, nextCursor };
+  return { results };
 };
