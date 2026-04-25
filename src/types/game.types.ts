@@ -27,6 +27,7 @@ export interface GameRecord {
   userId: string;
   type: GameType;
   title: string;
+  titleLower?: string;
   description?: string;
   thumbnail?: string;
   category?: string;

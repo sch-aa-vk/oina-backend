@@ -34,6 +34,7 @@ export const createGame = async (userId: string, payload: CreateGamePayload): Pr
     userId,
     type: payload.type,
     title: payload.title.trim(),
+    titleLower: payload.title.trim().toLowerCase(),
     description: payload.description,
     thumbnail: coverKey,
     category: payload.category,

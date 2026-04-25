@@ -27,8 +27,9 @@ export const updateGame = async (
   const expressionAttributeNames: Record<string, string> = {};
 
   if (payload.title !== undefined) {
-    updateExpressionParts.push('#title = :title');
+    updateExpressionParts.push('#title = :title, titleLower = :titleLower');
     expressionAttributeValues[':title'] = payload.title.trim();
+    expressionAttributeValues[':titleLower'] = payload.title.trim().toLowerCase();
     expressionAttributeNames['#title'] = 'title';
   }
   if (payload.description !== undefined) {

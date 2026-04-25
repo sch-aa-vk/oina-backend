@@ -28,8 +28,8 @@ export const listPublicGames = async (params: {
   }
 
   if (search) {
-    filterParts.push('contains(title, :search)');
-    filterValues[':search'] = search;
+    filterParts.push('contains(titleLower, :search)');
+    filterValues[':search'] = search.toLowerCase();
   }
 
   let indexName: string;
