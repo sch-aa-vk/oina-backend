@@ -22,6 +22,13 @@ export class GameLambdasConstruct extends Construct {
 	public readonly unpublishGameFn: lambdaNodejs.NodejsFunction;
 	public readonly previewGameFn: lambdaNodejs.NodejsFunction;
 	public readonly listGameVersionsFn: lambdaNodejs.NodejsFunction;
+	public readonly recordGameResultFn: lambdaNodejs.NodejsFunction;
+	public readonly getGameHistoryFn: lambdaNodejs.NodejsFunction;
+	public readonly restoreGameFn: lambdaNodejs.NodejsFunction;
+	public readonly listPublicGamesFn: lambdaNodejs.NodejsFunction;
+	public readonly likeGameFn: lambdaNodejs.NodejsFunction;
+	public readonly unlikeGameFn: lambdaNodejs.NodejsFunction;
+	public readonly trackViewFn: lambdaNodejs.NodejsFunction;
 
 	constructor(scope: Construct, id: string, props: GameLambdasConstructProps) {
 		super(scope, id);
@@ -55,5 +62,12 @@ export class GameLambdasConstruct extends Construct {
 		this.unpublishGameFn = createFn('UnpublishGameLambda', 'unpublish-game.ts');
 		this.previewGameFn = createFn('PreviewGameLambda', 'preview-game.ts');
 		this.listGameVersionsFn = createFn('ListGameVersionsLambda', 'list-game-versions.ts');
+		this.recordGameResultFn = createFn('RecordGameResultLambda', 'record-game-result.ts');
+		this.getGameHistoryFn = createFn('GetGameHistoryLambda', 'get-game-history.ts');
+		this.restoreGameFn = createFn('RestoreGameLambda', 'restore-game.ts');
+		this.listPublicGamesFn = createFn('ListPublicGamesLambda', 'list-public-games.ts');
+		this.likeGameFn = createFn('LikeGameLambda', 'like-game.ts');
+		this.unlikeGameFn = createFn('UnlikeGameLambda', 'unlike-game.ts');
+		this.trackViewFn = createFn('TrackViewLambda', 'track-view.ts');
 	}
 }

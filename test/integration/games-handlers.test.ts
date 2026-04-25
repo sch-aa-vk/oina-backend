@@ -253,7 +253,7 @@ describe('POST /games - transaction conflict behavior', () => {
     mockSend
       .mockRejectedValueOnce(txError) // TransactWrite
       .mockResolvedValueOnce({ // GetCommand for quota check
-        Item: { totalGames: 5, gamesThisMonth: 1, currentMonthStart: '2026-04' },
+        Item: { totalGames: 5, gamesThisMonth: 5, currentMonthStart: '2026-04' },
       });
 
     const result = await createGame(
@@ -268,6 +268,6 @@ describe('POST /games - transaction conflict behavior', () => {
 
     expect(result.statusCode).toBe(409);
     const body = JSON.parse(result.body);
-    expect(body.error).toBe('QUOTA_TOTAL_GAMES_EXCEEDED');
+    expect(body.error).toBe('QUOTA_MONTHLY_GAMES_EXCEEDED');
   });
 });

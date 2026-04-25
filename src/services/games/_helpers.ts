@@ -1,15 +1,32 @@
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { GameRecord, GameResponse, GameVisibility } from '../../types/game.types';
+import { GameRecord, GameResponse, GameSummaryResponse, GameVisibility } from '../../types/game.types';
 import { Errors } from '../../utils/errors';
-import { docClient, GAMES_TABLE, USERS_TABLE, MAX_TOTAL_GAMES, MAX_MONTHLY_GAMES } from './_client';
+import { docClient, GAMES_TABLE, USERS_TABLE, MAX_MONTHLY_GAMES, GAME_COVER_BUCKET_NAME } from './_client';
 
-export const toGameResponse = (record: GameRecord): GameResponse => ({
+const COVER_URL_EXPIRY_SECONDS = 3600;
+
+const resolveCoverUrl = async (key: string): Promise<string> => {
+  const s3Client = new S3Client({ region: process.env.AWS_REGION });
+  return getSignedUrl(
+    s3Client,
+    new GetObjectCommand({ Bucket: GAME_COVER_BUCKET_NAME, Key: key }),
+    { expiresIn: COVER_URL_EXPIRY_SECONDS }
+  );
+};
+
+const isCoverKey = (value: string): boolean => value.startsWith('game-covers/');
+
+export const toGameResponse = async (record: GameRecord): Promise<GameResponse> => ({
   gameId: record.gameId,
   userId: record.userId,
   type: record.type,
   title: record.title,
   description: record.description,
-  thumbnail: record.thumbnail,
+  thumbnail: record.thumbnail && isCoverKey(record.thumbnail)
+    ? await resolveCoverUrl(record.thumbnail)
+    : record.thumbnail,
   category: record.category,
   tags: record.tags,
   visibility: record.visibility,
@@ -22,6 +39,30 @@ export const toGameResponse = (record: GameRecord): GameResponse => ({
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
   currentVersion: record.currentVersion,
+  isDeleted: record.isDeleted,
+  deletedAt: record.deletedAt,
+});
+
+export const toGameSummaryResponse = async (record: GameRecord): Promise<GameSummaryResponse> => ({
+  gameId: record.gameId,
+  userId: record.userId,
+  type: record.type,
+  title: record.title,
+  description: record.description,
+  thumbnail: record.thumbnail && isCoverKey(record.thumbnail)
+    ? await resolveCoverUrl(record.thumbnail)
+    : record.thumbnail,
+  category: record.category,
+  tags: record.tags,
+  visibility: record.visibility,
+  publishedAt: record.publishedAt,
+  shareLink: record.shareLink,
+  viewCount: record.viewCount,
+  playCount: record.playCount,
+  likeCount: record.likeCount,
+  createdAt: record.createdAt,
+  updatedAt: record.updatedAt,
+  isDeleted: record.isDeleted,
 });
 
 export const getCurrentMonthKey = (): string => {
@@ -81,13 +122,11 @@ export const getUserForQuotaCheck = async (
 };
 
 export const throwQuotaError = (
-  totalGames: number,
   gamesThisMonth: number,
   currentMonthStart: string,
   currentMonth: string
 ): never => {
-  if (totalGames >= MAX_TOTAL_GAMES) throw Errors.QUOTA_TOTAL_GAMES_EXCEEDED();
   const effectiveMonthly = currentMonthStart !== currentMonth ? 0 : gamesThisMonth;
   if (effectiveMonthly >= MAX_MONTHLY_GAMES) throw Errors.QUOTA_MONTHLY_GAMES_EXCEEDED();
-  throw Errors.QUOTA_TOTAL_GAMES_EXCEEDED(); // fallback
+  throw Errors.INTERNAL_ERROR();
 };

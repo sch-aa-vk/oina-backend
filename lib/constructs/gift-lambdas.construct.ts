@@ -16,6 +16,7 @@ export class GiftLambdasConstruct extends Construct {
 	public readonly generateGiftFn: lambdaNodejs.NodejsFunction;
 	public readonly generateGiftWorkerFn: lambdaNodejs.NodejsFunction;
 	public readonly getGiftFn: lambdaNodejs.NodejsFunction;
+	public readonly listMyGiftsFn: lambdaNodejs.NodejsFunction;
 
 	constructor(scope: Construct, id: string, props: GiftLambdasConstructProps) {
 		super(scope, id);
@@ -62,5 +63,6 @@ export class GiftLambdasConstruct extends Construct {
 		});
 
 		this.getGiftFn = createFn('GetLambda', 'get-gift.ts');
+		this.listMyGiftsFn = createFn('ListMyLambda', 'list-my-gifts.ts');
 	}
 }

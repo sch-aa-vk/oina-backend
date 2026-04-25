@@ -29,3 +29,15 @@ export const requireAuth = async (event: APIGatewayProxyEvent): Promise<TokenPay
   const payload = await validateAccessToken(token);
   return payload;
 };
+
+export const optionalAuth = async (event: APIGatewayProxyEvent): Promise<TokenPayload | null> => {
+  const authHeader = event.headers['Authorization'] || event.headers['authorization'];
+  if (!authHeader) return null;
+  try {
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0].toLowerCase() !== 'bearer') return null;
+    return await validateAccessToken(parts[1]);
+  } catch {
+    return null;
+  }
+};

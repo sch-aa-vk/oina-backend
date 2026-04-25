@@ -79,4 +79,5 @@ export const updateGame = async (
 
   const updated = await getGameOrThrow(gameId);
   return toGameResponse(updated);
+
 };

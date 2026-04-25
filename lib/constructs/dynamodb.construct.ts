@@ -13,6 +13,9 @@ export class DynamoDbConstruct extends Construct {
 	public readonly gamesTable: dynamodb.Table;
 	public readonly gameVersionsTable: dynamodb.Table;
 	public readonly giftsTable: dynamodb.Table;
+	public readonly gameResultsTable: dynamodb.Table;
+	public readonly gameLikesTable: dynamodb.Table;
+	public readonly gameViewsTable: dynamodb.Table;
 
 	constructor(scope: Construct, id: string, props: DynamoDbConstructProps) {
 		super(scope, id);
@@ -99,11 +102,48 @@ export class DynamoDbConstruct extends Construct {
 			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
 		});
 
+		this.gameLikesTable = new dynamodb.Table(this, `GameLikesTable${stageName}`, {
+			tableName: `oina-game-likes-${stageName}`,
+			partitionKey: { name: 'likeKey', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
+		this.gameViewsTable = new dynamodb.Table(this, `GameViewsTable${stageName}`, {
+			tableName: `oina-game-views-${stageName}`,
+			partitionKey: { name: 'viewKey', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			timeToLiveAttribute: 'expiresAt',
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+
 		this.giftsTable = new dynamodb.Table(this, `GiftsTable${stageName}`, {
 			tableName: `oina-gifts-${stageName}`,
 			partitionKey: { name: 'giftId', type: dynamodb.AttributeType.STRING },
 			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
 			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+		this.giftsTable.addGlobalSecondaryIndex({
+			indexName: 'userId-createdAt-index',
+			partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+		});
+
+		this.gameResultsTable = new dynamodb.Table(this, `GameResultsTable${stageName}`, {
+			tableName: `oina-game-results-${stageName}`,
+			partitionKey: { name: 'gameResultId', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		});
+		this.gameResultsTable.addGlobalSecondaryIndex({
+			indexName: 'userId-playedAt-index',
+			partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'playedAt', type: dynamodb.AttributeType.STRING },
+		});
+		this.gameResultsTable.addGlobalSecondaryIndex({
+			indexName: 'gameId-playedAt-index',
+			partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
+			sortKey: { name: 'playedAt', type: dynamodb.AttributeType.STRING },
 		});
 	}
 }

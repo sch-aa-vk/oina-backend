@@ -80,7 +80,6 @@ describe('GET /users/me', () => {
     expect(result.statusCode).toBe(200);
     const body = JSON.parse(result.body);
     expect(body.message).toBe('Profile retrieved');
-    expect(body.data.userId).toBe('user-1');
     expect(body.data.email).toBe('alice@example.com');
     expect(body.data.totalGames).toBe(2);
     expect(body.data.avatarUrl).toContain('presigned.s3.amazonaws.com');

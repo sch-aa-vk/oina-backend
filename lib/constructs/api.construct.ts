@@ -83,12 +83,15 @@ export class ApiConstruct extends Construct {
 		const gamesResource = this.api.root.addResource('games');
 		gamesResource.addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.createGameFn));
 		gamesResource.addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.listGamesFn));
+		gamesResource.addResource('public').addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.listPublicGamesFn));
 
 		const gameIdResource = gamesResource.addResource('{gameId}');
 		gameIdResource.addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.getGameFn));
 		gameIdResource.addMethod('PUT', new apigateway.LambdaIntegration(gameLambdas.updateGameFn));
 		gameIdResource.addMethod('DELETE', new apigateway.LambdaIntegration(gameLambdas.deleteGameFn));
 
+		gameIdResource.addResource('play').addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.recordGameResultFn));
+		gameIdResource.addResource('restore').addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.restoreGameFn));
 		gameIdResource.addResource('publish').addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.publishGameFn));
 		gameIdResource
 			.addResource('unpublish')
@@ -97,11 +100,19 @@ export class ApiConstruct extends Construct {
 		gameIdResource
 			.addResource('versions')
 			.addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.listGameVersionsFn));
+
+		const likeResource = gameIdResource.addResource('like');
+		likeResource.addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.likeGameFn));
+		likeResource.addMethod('DELETE', new apigateway.LambdaIntegration(gameLambdas.unlikeGameFn));
+		gameIdResource.addResource('view').addMethod('POST', new apigateway.LambdaIntegration(gameLambdas.trackViewFn));
+
+		gamesResource.addResource('history').addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.getGameHistoryFn));
 	}
 
 	private buildGiftRoutes(giftLambdas: GiftLambdasConstruct) {
 		const giftsResource = this.api.root.addResource('gifts');
 		giftsResource.addResource('generate').addMethod('POST', new apigateway.LambdaIntegration(giftLambdas.generateGiftFn));
+		giftsResource.addResource('mine').addMethod('GET', new apigateway.LambdaIntegration(giftLambdas.listMyGiftsFn));
 		giftsResource.addResource('{giftId}').addMethod('GET', new apigateway.LambdaIntegration(giftLambdas.getGiftFn));
 	}
 

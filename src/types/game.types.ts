@@ -42,6 +42,8 @@ export interface GameRecord {
   createdAt: string;
   updatedAt: string;
   currentVersion: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface GameVersionRecord {
@@ -63,6 +65,7 @@ export interface CreateGamePayload {
   category?: string;
   tags?: string[];
   content: GameContent;
+  coverImageContentType?: string;
 }
 
 export interface UpdateGamePayload {
@@ -98,10 +101,77 @@ export interface GameResponse {
   createdAt: string;
   updatedAt: string;
   currentVersion: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
+  coverUploadUrl?: string;
 }
 
 export interface GameListResponse {
   games: GameResponse[];
+  nextCursor?: string;
+}
+
+export type SortBy = 'newest' | 'popular';
+
+export interface GameSummaryResponse {
+  gameId: string;
+  userId: string;
+  type: GameType;
+  title: string;
+  description?: string;
+  thumbnail?: string;
+  category?: string;
+  tags?: string[];
+  visibility: GameVisibility;
+  publishedAt?: string;
+  shareLink?: string;
+  viewCount: number;
+  playCount: number;
+  likeCount: number;
+  createdAt: string;
+  updatedAt: string;
+  isDeleted?: boolean;
+}
+
+export interface PublicGameListResponse {
+  games: GameSummaryResponse[];
+  nextCursor?: string;
+}
+
+export type CompletionStatus = 'completed' | 'abandoned';
+
+export interface GameResultRecord {
+  gameResultId: string;
+  userId: string;
+  gameId: string;
+  score: number;
+  maxScore: number;
+  duration: number;
+  completionStatus: CompletionStatus;
+  playedAt: string;
+}
+
+export interface RecordGameResultPayload {
+  score: number;
+  maxScore: number;
+  duration: number;
+  completionStatus: CompletionStatus;
+}
+
+export interface GameResultResponse {
+  gameResultId: string;
+  gameId: string;
+  gameTitle?: string;
+  isGameDeleted?: boolean;
+  score: number;
+  maxScore: number;
+  duration: number;
+  completionStatus: CompletionStatus;
+  playedAt: string;
+}
+
+export interface GameHistoryResponse {
+  results: GameResultResponse[];
   nextCursor?: string;
 }
 

@@ -20,7 +20,7 @@ export const listUserGames = async (userId: string, cursor?: string): Promise<Ga
     })
   );
 
-  const games = (result.Items ?? []).map((item) => toGameResponse(item as GameRecord));
+  const games = await Promise.all((result.Items ?? []).map((item) => toGameResponse(item as GameRecord)));
   const nextCursor = result.LastEvaluatedKey
     ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
     : undefined;

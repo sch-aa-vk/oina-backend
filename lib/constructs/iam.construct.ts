@@ -12,8 +12,12 @@ interface IamConstructProps {
 	tokenBlacklistTable: dynamodb.Table;
 	gamesTable: dynamodb.Table;
 	gameVersionsTable: dynamodb.Table;
+	gameResultsTable: dynamodb.Table;
+	gameLikesTable: dynamodb.Table;
+	gameViewsTable: dynamodb.Table;
 	userPool: cognito.UserPool;
 	avatarBucket: s3.Bucket;
+	gamesCoverBucket: s3.Bucket;
 	giftsTable: dynamodb.Table;
 	giftsBucket: s3.Bucket;
 }
@@ -26,7 +30,7 @@ export class IamConstruct extends Construct {
 	constructor(scope: Construct, id: string, props: IamConstructProps) {
 		super(scope, id);
 
-		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, userPool, avatarBucket, giftsTable, giftsBucket } =
+		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, gameResultsTable, gameLikesTable, gameViewsTable, userPool, avatarBucket, gamesCoverBucket, giftsTable, giftsBucket } =
 			props;
 
 		this.authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
@@ -73,6 +77,11 @@ export class IamConstruct extends Construct {
 		usersTable.grantReadWriteData(this.gameLambdaRole);
 		gamesTable.grantReadWriteData(this.gameLambdaRole);
 		gameVersionsTable.grantReadWriteData(this.gameLambdaRole);
+		gameResultsTable.grantReadWriteData(this.gameLambdaRole);
+		gameLikesTable.grantReadWriteData(this.gameLambdaRole);
+		gameViewsTable.grantReadWriteData(this.gameLambdaRole);
+		gamesCoverBucket.grantPut(this.gameLambdaRole);
+		gamesCoverBucket.grantRead(this.gameLambdaRole);
 		tokenBlacklistTable.grantReadData(this.gameLambdaRole);
 
 		this.giftLambdaRole = new iam.Role(this, `GiftLambdaRole${stageName}`, {

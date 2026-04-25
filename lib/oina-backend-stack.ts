@@ -31,8 +31,12 @@ export class OinaBackendStack extends cdk.Stack {
 			tokenBlacklistTable: dynamoDbConstruct.tokenBlacklistTable,
 			gamesTable: dynamoDbConstruct.gamesTable,
 			gameVersionsTable: dynamoDbConstruct.gameVersionsTable,
+			gameResultsTable: dynamoDbConstruct.gameResultsTable,
+			gameLikesTable: dynamoDbConstruct.gameLikesTable,
+			gameViewsTable: dynamoDbConstruct.gameViewsTable,
 			userPool: cognitoConstruct.userPool,
 			avatarBucket: s3Construct.avatarBucket,
+			gamesCoverBucket: s3Construct.gamesCoverBucket,
 			giftsTable: dynamoDbConstruct.giftsTable,
 			giftsBucket: s3Construct.giftsBucket,
 		});
@@ -57,6 +61,10 @@ export class OinaBackendStack extends cdk.Stack {
 			...sharedEnv,
 			DYNAMODB_GAMES_TABLE: dynamoDbConstruct.gamesTable.tableName,
 			DYNAMODB_GAME_VERSIONS_TABLE: dynamoDbConstruct.gameVersionsTable.tableName,
+			DYNAMODB_GAME_RESULTS_TABLE: dynamoDbConstruct.gameResultsTable.tableName,
+			DYNAMODB_GAME_LIKES_TABLE: dynamoDbConstruct.gameLikesTable.tableName,
+			DYNAMODB_GAME_VIEWS_TABLE: dynamoDbConstruct.gameViewsTable.tableName,
+			GAME_COVER_BUCKET_NAME: s3Construct.gamesCoverBucket.bucketName,
 		};
 
 		const giftEnv: Record<string, string> = {
