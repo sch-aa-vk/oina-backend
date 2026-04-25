@@ -6,11 +6,6 @@ const mockSsmSend = jest.fn();
 const mockS3Send = jest.fn();
 const mockDocSend = jest.fn();
 
-jest.mock('@aws-sdk/client-ssm', () => ({
-  SSMClient: jest.fn().mockImplementation(() => ({ send: mockSsmSend })),
-  GetParameterCommand: jest.fn().mockImplementation((input: unknown) => input),
-}));
-
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({ send: mockS3Send })),
   PutObjectCommand: jest.fn().mockImplementation((input: unknown) => input),

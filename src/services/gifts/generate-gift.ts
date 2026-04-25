@@ -1,31 +1,16 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { GenerateGiftPayload, GenerateGiftResponse, GiftRecord } from '../../types/gift.types';
 import { Errors } from '../../utils/errors';
 
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 const s3Client = new S3Client({});
-const ssmClient = new SSMClient({});
 
 const GIFTS_TABLE = process.env.DYNAMODB_GIFTS_TABLE!;
 const GIFTS_BUCKET = process.env.GIFTS_BUCKET_NAME!;
-const GEMINI_API_KEY_PARAM = process.env.GEMINI_API_KEY_PARAM!;
-
-let cachedApiKey: string | null = null;
-
-async function getGeminiApiKey(): Promise<string> {
-  if (cachedApiKey) return cachedApiKey;
-  const param = await ssmClient.send(new GetParameterCommand({
-    Name: GEMINI_API_KEY_PARAM,
-    WithDecryption: true,
-  }));
-  const apiKey = param.Parameter!.Value!;
-  cachedApiKey = apiKey;
-  return apiKey;
-}
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
 
 function buildGiftPrompt(payload: GenerateGiftPayload): string {
   const isValentineYesNoTemplate = payload.templateLabel === 'Valentine Playful Yes/No';
@@ -123,7 +108,7 @@ function extractHtml(text: string): string {
 }
 
 export async function generateGift(userId: string, payload: GenerateGiftPayload): Promise<GenerateGiftResponse> {
-  const apiKey = await getGeminiApiKey();
+  const apiKey = GEMINI_API_KEY;
   const prompt = buildGiftPrompt(payload);
 
   const response = await fetch(

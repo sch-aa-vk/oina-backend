@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -29,6 +30,7 @@ export class GiftLambdasConstruct extends Construct {
 				role,
 				timeout: cdk.Duration.seconds(30),
 				memorySize: 256,
+				logRetention: logs.RetentionDays.TWO_WEEKS,
 				bundling: {
 					minify: false,
 					sourceMap: true,
