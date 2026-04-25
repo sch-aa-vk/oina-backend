@@ -55,4 +55,11 @@ export const Errors = {
 
   // Profile errors
   USERNAME_TAKEN: () => new AppError(409, 'USERNAME_TAKEN', 'This username is already taken'),
+
+  // Gift errors
+  INVALID_GIFT_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_GIFT_PAYLOAD', 'Invalid gift payload', details),
+  GIFT_NOT_FOUND: () => new AppError(404, 'GIFT_NOT_FOUND', 'Gift not found'),
+  GEMINI_API_ERROR: (message?: string) =>
+    new AppError(502, 'GEMINI_API_ERROR', message ?? 'Gemini API error'),
 };

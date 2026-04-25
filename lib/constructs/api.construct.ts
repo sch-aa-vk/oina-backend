@@ -6,6 +6,7 @@ import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import { AuthLambdasConstruct } from './auth-lambdas.construct';
 import { GameLambdasConstruct } from './game-lambdas.construct';
+import { GiftLambdasConstruct } from './gift-lambdas.construct';
 
 interface ApiConstructProps {
 	stageName: string;
@@ -15,6 +16,7 @@ interface ApiConstructProps {
 	hostedZoneName: string;
 	authLambdas: AuthLambdasConstruct;
 	gameLambdas: GameLambdasConstruct;
+	giftLambdas: GiftLambdasConstruct;
 }
 
 export class ApiConstruct extends Construct {
@@ -23,7 +25,7 @@ export class ApiConstruct extends Construct {
 	constructor(scope: Construct, id: string, props: ApiConstructProps) {
 		super(scope, id);
 
-		const { stageName, domainName, certificateArn, hostedZoneId, hostedZoneName, authLambdas, gameLambdas } = props;
+		const { stageName, domainName, certificateArn, hostedZoneId, hostedZoneName, authLambdas, gameLambdas, giftLambdas } = props;
 
 		this.api = new apigateway.RestApi(this, `OinaApi${stageName}`, {
 			restApiName: `oina-api-${stageName}`,
@@ -40,6 +42,7 @@ export class ApiConstruct extends Construct {
 
 		this.buildAuthRoutes(authLambdas);
 		this.buildGameRoutes(gameLambdas);
+		this.buildGiftRoutes(giftLambdas);
 		this.setupCustomDomain(stageName, domainName, certificateArn, hostedZoneId, hostedZoneName);
 	}
 
@@ -94,6 +97,12 @@ export class ApiConstruct extends Construct {
 		gameIdResource
 			.addResource('versions')
 			.addMethod('GET', new apigateway.LambdaIntegration(gameLambdas.listGameVersionsFn));
+	}
+
+	private buildGiftRoutes(giftLambdas: GiftLambdasConstruct) {
+		const giftsResource = this.api.root.addResource('gifts');
+		giftsResource.addResource('generate').addMethod('POST', new apigateway.LambdaIntegration(giftLambdas.generateGiftFn));
+		giftsResource.addResource('{giftId}').addMethod('GET', new apigateway.LambdaIntegration(giftLambdas.getGiftFn));
 	}
 
 	private setupCustomDomain(

@@ -10,6 +10,7 @@ export interface StackEnvironment {
 	smtpPassword: string;
 	smtpFrom: string;
 	jwtSecret: string;
+	geminiApiKey: string;
 }
 
 export function loadEnvironment(): StackEnvironment {
@@ -25,6 +26,7 @@ export function loadEnvironment(): StackEnvironment {
 		SMTP_USER: process.env.SMTP_USER,
 		SMTP_PASSWORD: process.env.SMTP_PASSWORD,
 		SMTP_FROM: process.env.SMTP_FROM,
+		GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 	};
 
 	const missing = Object.entries(required)
@@ -47,5 +49,6 @@ export function loadEnvironment(): StackEnvironment {
 		smtpPassword: required.SMTP_PASSWORD!,
 		smtpFrom: required.SMTP_FROM!,
 		jwtSecret: required.JWT_SECRET!,
+		geminiApiKey: required.GEMINI_API_KEY!,
 	};
 }

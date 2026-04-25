@@ -6,6 +6,7 @@ import { AuthLambdasConstruct } from './constructs/auth-lambdas.construct';
 import { CognitoConstruct } from './constructs/cognito.construct';
 import { DynamoDbConstruct } from './constructs/dynamodb.construct';
 import { GameLambdasConstruct } from './constructs/game-lambdas.construct';
+import { GiftLambdasConstruct } from './constructs/gift-lambdas.construct';
 import { IamConstruct } from './constructs/iam.construct';
 import { S3Construct } from './constructs/s3.construct';
 
@@ -31,6 +32,8 @@ export class OinaBackendStack extends cdk.Stack {
 			gameVersionsTable: dynamoDbConstruct.gameVersionsTable,
 			userPool: cognitoConstruct.userPool,
 			avatarBucket: s3Construct.avatarBucket,
+			giftsTable: dynamoDbConstruct.giftsTable,
+			giftsBucket: s3Construct.giftsBucket,
 		});
 
 		const sharedEnv: Record<string, string> = {
@@ -55,6 +58,13 @@ export class OinaBackendStack extends cdk.Stack {
 			DYNAMODB_GAME_VERSIONS_TABLE: dynamoDbConstruct.gameVersionsTable.tableName,
 		};
 
+		const giftEnv: Record<string, string> = {
+			...sharedEnv,
+			DYNAMODB_GIFTS_TABLE: dynamoDbConstruct.giftsTable.tableName,
+			GIFTS_BUCKET_NAME: s3Construct.giftsBucket.bucketName,
+			GEMINI_API_KEY: env.geminiApiKey,
+		};
+
 		const authLambdas = new AuthLambdasConstruct(this, 'AuthLambdas', {
 			stageName,
 			role: iamConstruct.authLambdaRole,
@@ -67,6 +77,12 @@ export class OinaBackendStack extends cdk.Stack {
 			environment: gameEnv,
 		});
 
+		const giftLambdas = new GiftLambdasConstruct(this, 'GiftLambdas', {
+			stageName,
+			role: iamConstruct.giftLambdaRole,
+			environment: giftEnv,
+		});
+
 		const apiConstruct = new ApiConstruct(this, 'Api', {
 			stageName,
 			domainName: env.domainName,
@@ -75,6 +91,7 @@ export class OinaBackendStack extends cdk.Stack {
 			hostedZoneName: env.hostedZoneName,
 			authLambdas,
 			gameLambdas,
+			giftLambdas,
 		});
 
 		new cdk.CfnOutput(this, `ApiUrl${stageName}`, {

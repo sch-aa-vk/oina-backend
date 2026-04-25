@@ -14,16 +14,19 @@ interface IamConstructProps {
 	gameVersionsTable: dynamodb.Table;
 	userPool: cognito.UserPool;
 	avatarBucket: s3.Bucket;
+	giftsTable: dynamodb.Table;
+	giftsBucket: s3.Bucket;
 }
 
 export class IamConstruct extends Construct {
 	public readonly authLambdaRole: iam.Role;
 	public readonly gameLambdaRole: iam.Role;
+	public readonly giftLambdaRole: iam.Role;
 
 	constructor(scope: Construct, id: string, props: IamConstructProps) {
 		super(scope, id);
 
-		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, userPool, avatarBucket } =
+		const { stageName, usersTable, otpCodesTable, tokenBlacklistTable, gamesTable, gameVersionsTable, userPool, avatarBucket, giftsTable, giftsBucket } =
 			props;
 
 		this.authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
@@ -71,5 +74,22 @@ export class IamConstruct extends Construct {
 		gamesTable.grantReadWriteData(this.gameLambdaRole);
 		gameVersionsTable.grantReadWriteData(this.gameLambdaRole);
 		tokenBlacklistTable.grantReadData(this.gameLambdaRole);
+
+		this.giftLambdaRole = new iam.Role(this, `GiftLambdaRole${stageName}`, {
+			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+		});
+		this.giftLambdaRole.addManagedPolicy(
+			iam.ManagedPolicy.fromManagedPolicyArn(
+				this,
+				`GiftLambdaBasicExecutionPolicy${stageName}`,
+				`arn:${cdk.Aws.PARTITION}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`
+			)
+		);
+
+		giftsTable.grantReadWriteData(this.giftLambdaRole);
+		giftsBucket.grantPut(this.giftLambdaRole);
+		giftsBucket.grantRead(this.giftLambdaRole);
+		tokenBlacklistTable.grantReadData(this.giftLambdaRole);
+		usersTable.grantReadData(this.giftLambdaRole);
 	}
 }

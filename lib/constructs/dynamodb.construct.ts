@@ -12,6 +12,7 @@ export class DynamoDbConstruct extends Construct {
 	public readonly tokenBlacklistTable: dynamodb.Table;
 	public readonly gamesTable: dynamodb.Table;
 	public readonly gameVersionsTable: dynamodb.Table;
+	public readonly giftsTable: dynamodb.Table;
 
 	constructor(scope: Construct, id: string, props: DynamoDbConstructProps) {
 		super(scope, id);
@@ -96,6 +97,13 @@ export class DynamoDbConstruct extends Construct {
 			indexName: 'gameId-createdAt-index',
 			partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
 			sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+		});
+
+		this.giftsTable = new dynamodb.Table(this, `GiftsTable${stageName}`, {
+			tableName: `oina-gifts-${stageName}`,
+			partitionKey: { name: 'giftId', type: dynamodb.AttributeType.STRING },
+			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+			removalPolicy: cdk.RemovalPolicy.DESTROY,
 		});
 	}
 }
