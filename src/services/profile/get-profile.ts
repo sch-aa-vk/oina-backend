@@ -37,5 +37,6 @@ export const getCurrentUserProfile = async (userId: string): Promise<UserRecord>
     user.avatarUrl = await resolveAvatarUrl(user.avatarUrl);
   }
 
-  return user;
+  const { passwordHash: _, userId: __, ...safeUser } = user;
+  return safeUser as UserRecord;
 };

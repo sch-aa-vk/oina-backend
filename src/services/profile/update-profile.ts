@@ -1,7 +1,8 @@
-import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { UserRecord, UpdateProfilePayload } from '../../types/user.types';
 import { Errors } from '../../utils/errors';
 import { docClient, USERS_TABLE } from './_client';
+import { getCurrentUserProfile } from './get-profile';
 
 export const updateCurrentUserProfile = async (
   userId: string,
@@ -49,14 +50,5 @@ export const updateCurrentUserProfile = async (
     ...(Object.keys(attrNames).length > 0 ? { ExpressionAttributeNames: attrNames } : {}),
   }));
 
-  const updated = await docClient.send(new GetCommand({
-    TableName: USERS_TABLE,
-    Key: { userId },
-  }));
-
-  if (!updated.Item) {
-    throw Errors.USER_NOT_FOUND();
-  }
-
-  return updated.Item as UserRecord;
+  return getCurrentUserProfile(userId);
 };

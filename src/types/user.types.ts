@@ -12,6 +12,7 @@ export interface UserRecord {
   createdAt: string;
   updatedAt: string;
   preferences?: UserPreferences;
+  passwordHash?: string;
 }
 
 export interface UserPreferences {
