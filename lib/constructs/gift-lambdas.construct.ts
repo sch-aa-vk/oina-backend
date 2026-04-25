@@ -45,6 +45,10 @@ export class GiftLambdasConstruct extends Construct {
 				...overrides,
 			});
 
+		// Derive the worker name as a plain string to avoid a circular CDK dependency:
+		// giftLambdaRole policy → worker ARN token → worker Lambda → giftLambdaRole.
+		const workerFunctionName = `oina-gift-worker-${stageName}`;
+
 		this.generateGiftWorkerFn = createFn('WorkerLambda', 'generate-gift-worker.ts', {
 			timeout: cdk.Duration.seconds(300),
 			memorySize: 512,
@@ -53,7 +57,7 @@ export class GiftLambdasConstruct extends Construct {
 		this.generateGiftFn = createFn('GenerateLambda', 'generate-gift.ts', {
 			environment: {
 				...environment,
-				WORKER_FUNCTION_NAME: this.generateGiftWorkerFn.functionName,
+				WORKER_FUNCTION_NAME: workerFunctionName,
 			},
 		});
 

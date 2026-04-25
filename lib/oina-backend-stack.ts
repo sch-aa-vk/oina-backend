@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { loadEnvironment } from './config/environment';
 import { ApiConstruct } from './constructs/api.construct';
@@ -83,7 +84,12 @@ export class OinaBackendStack extends cdk.Stack {
 			environment: giftEnv,
 		});
 
-		giftLambdas.generateGiftWorkerFn.grantInvoke(iamConstruct.giftLambdaRole);
+		iamConstruct.giftLambdaRole.addToPrincipalPolicy(new iam.PolicyStatement({
+			actions: ['lambda:InvokeFunction'],
+			resources: [
+				`arn:${cdk.Aws.PARTITION}:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:oina-gift-worker-${stageName}`,
+			],
+		}));
 
 		const apiConstruct = new ApiConstruct(this, 'Api', {
 			stageName,
