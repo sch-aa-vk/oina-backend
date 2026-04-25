@@ -116,6 +116,7 @@ export type SortBy = 'newest' | 'popular';
 export interface GameSummaryResponse {
   gameId: string;
   userId: string;
+  authorName?: string;
   type: GameType;
   title: string;
   description?: string;

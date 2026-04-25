@@ -43,9 +43,21 @@ export const toGameResponse = async (record: GameRecord): Promise<GameResponse> 
   deletedAt: record.deletedAt,
 });
 
-export const toGameSummaryResponse = async (record: GameRecord): Promise<GameSummaryResponse> => ({
+export const toGameSummaryResponse = async (record: GameRecord): Promise<GameSummaryResponse> => {
+  const userResult = await docClient.send(
+    new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { userId: record.userId },
+      ProjectionExpression: 'username, displayName',
+    })
+  );
+  const user = userResult.Item as { username?: string; displayName?: string } | undefined;
+  const authorName = user?.displayName ?? user?.username;
+
+  return {
   gameId: record.gameId,
   userId: record.userId,
+  authorName,
   type: record.type,
   title: record.title,
   description: record.description,
@@ -63,7 +75,8 @@ export const toGameSummaryResponse = async (record: GameRecord): Promise<GameSum
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
   isDeleted: record.isDeleted,
-});
+  };
+};
 
 export const getCurrentMonthKey = (): string => {
   const now = new Date();
