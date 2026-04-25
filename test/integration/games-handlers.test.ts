@@ -85,8 +85,8 @@ beforeEach(() => {
 // ── GET /games/{gameId} ───────────────────────────────────────────────────────
 
 describe('GET /games/{gameId} handler', () => {
-  it('returns 200 for owner', async () => {
-    mockSend.mockResolvedValueOnce({ Item: mockGame }); // GetCommand for game
+  it('returns 200 for public game', async () => {
+    mockSend.mockResolvedValueOnce({ Item: { ...mockGame, visibility: 'public' } }); // GetCommand for game
 
     const result = await getGame(makeEvent({ pathParameters: { gameId: 'game-1' } }));
 
@@ -115,14 +115,12 @@ describe('GET /games/{gameId} handler', () => {
     expect(body.error).toBe('GAME_NOT_FOUND');
   });
 
-  it('returns 401 when auth header missing', async () => {
-    mockValidateAccessToken.mockRejectedValueOnce(
-      Object.assign(new Error('TOKEN_MISSING'), { statusCode: 401, errorCode: 'TOKEN_MISSING', name: 'AppError' })
-    );
+  it('returns 200 without auth for public game', async () => {
+    mockSend.mockResolvedValueOnce({ Item: { ...mockGame, visibility: 'public' } });
 
     const result = await getGame(makeEvent({ headers: {}, pathParameters: { gameId: 'game-1' } }));
 
-    expect(result.statusCode).toBe(401);
+    expect(result.statusCode).toBe(200);
   });
 });
 
