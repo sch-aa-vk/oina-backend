@@ -14,6 +14,7 @@ interface GiftLambdasConstructProps {
 
 export class GiftLambdasConstruct extends Construct {
 	public readonly generateGiftFn: lambdaNodejs.NodejsFunction;
+	public readonly generateGiftWorkerFn: lambdaNodejs.NodejsFunction;
 	public readonly getGiftFn: lambdaNodejs.NodejsFunction;
 
 	constructor(scope: Construct, id: string, props: GiftLambdasConstructProps) {
@@ -21,7 +22,11 @@ export class GiftLambdasConstruct extends Construct {
 
 		const { stageName, role, environment } = props;
 
-		const createFn = (fnId: string, entry: string) =>
+		const createFn = (
+			fnId: string,
+			entry: string,
+			overrides: Partial<lambdaNodejs.NodejsFunctionProps> = {},
+		) =>
 			new lambdaNodejs.NodejsFunction(this, `${fnId}${stageName}`, {
 				functionName: `oina-gift-${fnId.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
 				entry: path.join(__dirname, '../../src/handlers/gifts', entry),
@@ -37,9 +42,21 @@ export class GiftLambdasConstruct extends Construct {
 					externalModules: [],
 				},
 				environment,
+				...overrides,
 			});
 
-		this.generateGiftFn = createFn('GenerateLambda', 'generate-gift.ts');
+		this.generateGiftWorkerFn = createFn('WorkerLambda', 'generate-gift-worker.ts', {
+			timeout: cdk.Duration.seconds(300),
+			memorySize: 512,
+		});
+
+		this.generateGiftFn = createFn('GenerateLambda', 'generate-gift.ts', {
+			environment: {
+				...environment,
+				WORKER_FUNCTION_NAME: this.generateGiftWorkerFn.functionName,
+			},
+		});
+
 		this.getGiftFn = createFn('GetLambda', 'get-gift.ts');
 	}
 }

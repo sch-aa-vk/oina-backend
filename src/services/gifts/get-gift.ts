@@ -23,6 +23,10 @@ export async function getGift(giftId: string): Promise<GetGiftResponse> {
 
   const record = result.Item as GiftRecord;
 
+  if (record.status !== 'READY') {
+    return { status: record.status };
+  }
+
   const s3Response = await s3Client.send(new GetObjectCommand({
     Bucket: GIFTS_BUCKET,
     Key: record.s3Key,
@@ -30,5 +34,5 @@ export async function getGift(giftId: string): Promise<GetGiftResponse> {
 
   const html = await s3Response.Body!.transformToString('utf-8');
 
-  return { html };
+  return { status: 'READY', html };
 }

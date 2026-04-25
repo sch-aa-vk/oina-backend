@@ -1,7 +1,7 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { GenerateGiftPayload, GenerateGiftResponse, GiftRecord } from '../../types/gift.types';
+import { GenerateGiftPayload, GiftRecord } from '../../types/gift.types';
 import { Errors } from '../../utils/errors';
 
 const dynamoClient = new DynamoDBClient({});
@@ -107,12 +107,29 @@ function extractHtml(text: string): string {
   return trimmed;
 }
 
-export async function generateGift(userId: string, payload: GenerateGiftPayload): Promise<GenerateGiftResponse> {
-  const apiKey = GEMINI_API_KEY;
+export async function initGift(userId: string, giftId: string, payload: GenerateGiftPayload): Promise<void> {
+  const record: GiftRecord = {
+    giftId,
+    userId,
+    recipientName: payload.recipientName,
+    occasion: payload.occasion,
+    s3Key: '',
+    createdAt: new Date().toISOString(),
+    status: 'GENERATING',
+  };
+
+  await docClient.send(new PutCommand({
+    TableName: GIFTS_TABLE,
+    Item: record,
+    ConditionExpression: 'attribute_not_exists(giftId)',
+  }));
+}
+
+export async function processGift(giftId: string, payload: GenerateGiftPayload): Promise<void> {
   const prompt = buildGiftPrompt(payload);
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -142,7 +159,6 @@ export async function generateGift(userId: string, payload: GenerateGiftPayload)
     throw Errors.GEMINI_API_ERROR('Could not extract HTML from Gemini response');
   }
 
-  const giftId = crypto.randomUUID();
   const s3Key = `gifts/${giftId}.html`;
 
   await s3Client.send(new PutObjectCommand({
@@ -152,20 +168,21 @@ export async function generateGift(userId: string, payload: GenerateGiftPayload)
     ContentType: 'text/html',
   }));
 
-  const record: GiftRecord = {
-    giftId,
-    userId,
-    recipientName: payload.recipientName,
-    occasion: payload.occasion,
-    s3Key,
-    createdAt: new Date().toISOString(),
-  };
-
-  await docClient.send(new PutCommand({
+  await docClient.send(new UpdateCommand({
     TableName: GIFTS_TABLE,
-    Item: record,
-    ConditionExpression: 'attribute_not_exists(giftId)',
+    Key: { giftId },
+    UpdateExpression: 'SET #status = :ready, s3Key = :s3Key',
+    ExpressionAttributeNames: { '#status': 'status' },
+    ExpressionAttributeValues: { ':ready': 'READY', ':s3Key': s3Key },
   }));
+}
 
-  return { giftId };
+export async function updateGiftError(giftId: string, errorMessage: string): Promise<void> {
+  await docClient.send(new UpdateCommand({
+    TableName: GIFTS_TABLE,
+    Key: { giftId },
+    UpdateExpression: 'SET #status = :error, errorMessage = :errorMessage',
+    ExpressionAttributeNames: { '#status': 'status' },
+    ExpressionAttributeValues: { ':error': 'ERROR', ':errorMessage': errorMessage },
+  }));
 }

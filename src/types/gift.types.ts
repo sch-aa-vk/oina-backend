@@ -1,3 +1,5 @@
+export type GiftStatus = 'GENERATING' | 'READY' | 'ERROR';
+
 export interface GenerateGiftPayload {
   recipientName: string;
   occasion: string;
@@ -19,6 +21,8 @@ export interface GiftRecord {
   occasion: string;
   s3Key: string;
   createdAt: string;
+  status: GiftStatus;
+  errorMessage?: string;
 }
 
 export interface GenerateGiftResponse {
@@ -26,5 +30,6 @@ export interface GenerateGiftResponse {
 }
 
 export interface GetGiftResponse {
-  html: string;
+  status: GiftStatus;
+  html?: string;
 }

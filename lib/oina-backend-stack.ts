@@ -83,6 +83,8 @@ export class OinaBackendStack extends cdk.Stack {
 			environment: giftEnv,
 		});
 
+		giftLambdas.generateGiftWorkerFn.grantInvoke(iamConstruct.giftLambdaRole);
+
 		const apiConstruct = new ApiConstruct(this, 'Api', {
 			stageName,
 			domainName: env.domainName,
