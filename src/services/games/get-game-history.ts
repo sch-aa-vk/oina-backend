@@ -3,7 +3,6 @@ import { GameRecord, GameResultRecord, GameHistoryResponse } from '../../types/g
 import { docClient, GAME_RESULTS_TABLE, GAMES_TABLE } from './_client';
 
 const MAX_UNIQUE_GAMES = 5;
-// Over-fetch so deduplication has enough records to find MAX_UNIQUE_GAMES distinct games
 const FETCH_LIMIT = 100;
 
 export const getGameHistory = async (userId: string): Promise<GameHistoryResponse> => {

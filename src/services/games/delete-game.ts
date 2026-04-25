@@ -28,7 +28,5 @@ export const deleteGame = async (userId: string, gameId: string): Promise<void> 
       ConditionExpression: 'totalGames > :zero',
       ExpressionAttributeValues: { ':one': 1, ':zero': 0 },
     })
-  ).catch(() => {
-    // best-effort decrement
-  });
+  ).catch(() => {});
 };

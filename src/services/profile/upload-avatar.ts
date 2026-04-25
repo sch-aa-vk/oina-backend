@@ -35,7 +35,6 @@ export const generateAvatarUploadUrl = async (
 
   const now = new Date().toISOString();
 
-  // Store the S3 key in DB; presigned GET URLs are generated on profile fetch
   await docClient.send(new UpdateCommand({
     TableName: USERS_TABLE,
     Key: { userId },

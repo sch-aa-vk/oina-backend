@@ -59,7 +59,6 @@ const validateRewards = (rewards: unknown): void => {
       }
     }
 
-    // Clients must not send assetKey — it is backend-managed (Phase 3.2)
     if (r.assetKey !== undefined) {
       throw Errors.INVALID_REWARD_PAYLOAD({ [`rewards[${index}].assetKey`]: 'assetKey is managed by the server and cannot be set by the client' });
     }

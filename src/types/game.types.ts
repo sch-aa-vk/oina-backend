@@ -13,7 +13,6 @@ export interface Reward {
   label: string;
   type: RewardType;
   text?: string;
-  // assetKey is backend-managed (Phase 3.2); clients must NOT send this field
   assetKey?: string;
 }
 
@@ -55,8 +54,6 @@ export interface GameVersionRecord {
   visibility: GameVisibility;
   createdAt: string;
 }
-
-// DTOs
 
 export interface CreateGamePayload {
   type: GameType;

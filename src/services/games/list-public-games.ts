@@ -9,9 +9,10 @@ export const listPublicGames = async (params: {
   sortBy?: SortBy;
   category?: string;
   type?: GameType;
+  search?: string;
   cursor?: string;
 }): Promise<PublicGameListResponse> => {
-  const { sortBy = 'newest', category, type, cursor } = params;
+  const { sortBy = 'newest', category, type, search, cursor } = params;
   const exclusiveStartKey = cursor
     ? (JSON.parse(Buffer.from(cursor, 'base64').toString()) as Record<string, unknown>)
     : undefined;
@@ -24,6 +25,11 @@ export const listPublicGames = async (params: {
     filterParts.push('#gameType = :type');
     filterValues[':type'] = type;
     filterNames['#gameType'] = 'type';
+  }
+
+  if (search) {
+    filterParts.push('contains(title, :search)');
+    filterValues[':search'] = search;
   }
 
   let indexName: string;

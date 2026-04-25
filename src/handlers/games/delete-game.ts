@@ -12,7 +12,6 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     if (!gameId) throw Errors.INVALID_GAME_PAYLOAD({ gameId: 'gameId path parameter is required' });
 
     await deleteGame(tokenPayload.userId, gameId);
-    // TODO (Phase 3.2): delete all reward media assets for this game from S3
 
     console.log(JSON.stringify({
       requestId: event.requestContext?.requestId,

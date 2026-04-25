@@ -11,12 +11,13 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   return withErrorHandler(async () => {
     const qs = event.queryStringParameters ?? {};
 
-    const sortBy = (VALID_SORT.includes(qs.sortBy as SortBy) ? qs.sortBy : 'newest') as SortBy;
+    const sortBy = (VALID_SORT.includes(qs.sortBy as SortBy) ? qs.sortBy : 'popular') as SortBy;
     const type = VALID_TYPES.includes(qs.type as GameType) ? (qs.type as GameType) : undefined;
     const category = qs.category ?? undefined;
+    const search = qs.search ?? undefined;
     const cursor = qs.cursor ?? undefined;
 
-    const result = await listPublicGames({ sortBy, category, type, cursor });
+    const result = await listPublicGames({ sortBy, category, type, search, cursor });
 
     console.log(JSON.stringify({
       requestId: event.requestContext?.requestId,
@@ -24,6 +25,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
       sortBy,
       category,
       type,
+      search,
       count: result.games.length,
     }));
 
