@@ -1,0 +1,73 @@
+import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import { Construct } from 'constructs';
+import * as path from 'path';
+
+interface GameLambdasConstructProps {
+	stageName: string;
+	role: iam.IRole;
+	environment: Record<string, string>;
+}
+
+export class GameLambdasConstruct extends Construct {
+	public readonly createGameFn: lambdaNodejs.NodejsFunction;
+	public readonly listGamesFn: lambdaNodejs.NodejsFunction;
+	public readonly getGameFn: lambdaNodejs.NodejsFunction;
+	public readonly updateGameFn: lambdaNodejs.NodejsFunction;
+	public readonly deleteGameFn: lambdaNodejs.NodejsFunction;
+	public readonly publishGameFn: lambdaNodejs.NodejsFunction;
+	public readonly unpublishGameFn: lambdaNodejs.NodejsFunction;
+	public readonly previewGameFn: lambdaNodejs.NodejsFunction;
+	public readonly listGameVersionsFn: lambdaNodejs.NodejsFunction;
+	public readonly recordGameResultFn: lambdaNodejs.NodejsFunction;
+	public readonly getGameHistoryFn: lambdaNodejs.NodejsFunction;
+	public readonly restoreGameFn: lambdaNodejs.NodejsFunction;
+	public readonly listPublicGamesFn: lambdaNodejs.NodejsFunction;
+	public readonly likeGameFn: lambdaNodejs.NodejsFunction;
+	public readonly unlikeGameFn: lambdaNodejs.NodejsFunction;
+	public readonly trackViewFn: lambdaNodejs.NodejsFunction;
+
+	constructor(scope: Construct, id: string, props: GameLambdasConstructProps) {
+		super(scope, id);
+
+		const { stageName, role, environment } = props;
+
+		const createFn = (fnId: string, entry: string) =>
+			new lambdaNodejs.NodejsFunction(this, `${fnId}${stageName}`, {
+				functionName: `oina-game-${fnId.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
+				entry: path.join(__dirname, '../../src/handlers/games', entry),
+				handler: 'handler',
+				runtime: lambda.Runtime.NODEJS_22_X,
+				role,
+				timeout: cdk.Duration.seconds(30),
+				memorySize: 256,
+				logRetention: logs.RetentionDays.TWO_WEEKS,
+				bundling: {
+					minify: false,
+					sourceMap: true,
+					externalModules: [],
+				},
+				environment,
+			});
+
+		this.createGameFn = createFn('CreateGameLambda', 'create-game.ts');
+		this.listGamesFn = createFn('ListGamesLambda', 'list-games.ts');
+		this.getGameFn = createFn('GetGameLambda', 'get-game.ts');
+		this.updateGameFn = createFn('UpdateGameLambda', 'update-game.ts');
+		this.deleteGameFn = createFn('DeleteGameLambda', 'delete-game.ts');
+		this.publishGameFn = createFn('PublishGameLambda', 'publish-game.ts');
+		this.unpublishGameFn = createFn('UnpublishGameLambda', 'unpublish-game.ts');
+		this.previewGameFn = createFn('PreviewGameLambda', 'preview-game.ts');
+		this.listGameVersionsFn = createFn('ListGameVersionsLambda', 'list-game-versions.ts');
+		this.recordGameResultFn = createFn('RecordGameResultLambda', 'record-game-result.ts');
+		this.getGameHistoryFn = createFn('GetGameHistoryLambda', 'get-game-history.ts');
+		this.restoreGameFn = createFn('RestoreGameLambda', 'restore-game.ts');
+		this.listPublicGamesFn = createFn('ListPublicGamesLambda', 'list-public-games.ts');
+		this.likeGameFn = createFn('LikeGameLambda', 'like-game.ts');
+		this.unlikeGameFn = createFn('UnlikeGameLambda', 'unlike-game.ts');
+		this.trackViewFn = createFn('TrackViewLambda', 'track-view.ts');
+	}
+}

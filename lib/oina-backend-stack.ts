@@ -1,227 +1,129 @@
 import * as cdk from 'aws-cdk-lib';
-import * as apigateway from 'aws-cdk-lib/aws-apigateway';
-import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
-import * as path from 'path';
+import { loadEnvironment } from './config/environment';
+import { ApiConstruct } from './constructs/api.construct';
+import { AuthLambdasConstruct } from './constructs/auth-lambdas.construct';
+import { CognitoConstruct } from './constructs/cognito.construct';
+import { DynamoDbConstruct } from './constructs/dynamodb.construct';
+import { GameLambdasConstruct } from './constructs/game-lambdas.construct';
+import { GiftLambdasConstruct } from './constructs/gift-lambdas.construct';
+import { IamConstruct } from './constructs/iam.construct';
+import { S3Construct } from './constructs/s3.construct';
 
 export class OinaBackendStack extends cdk.Stack {
 	constructor(scope: Construct, id: string, props?: cdk.StackProps) {
 		super(scope, id, props);
 
-		const stageName = process.env.STAGE_NAME ?? 'dev';
-		const domainName = process.env.DOMAIN_NAME;
-		const certificateArn = process.env.CERTIFICATE_ARN;
-		const hostedZoneDomain = process.env.HOSTED_ZONE_DOMAIN;
+		const env = loadEnvironment();
+		const { stageName } = env;
 
-		const userPool = new cognito.UserPool(this, `OinaUserPool${stageName}`, {
-			userPoolName: `oina-user-pool-${stageName}`,
-			selfSignUpEnabled: false,
-			signInAliases: { email: true },
-			autoVerify: { email: false },
-			passwordPolicy: {
-				minLength: 8,
-				requireUppercase: true,
-				requireLowercase: true,
-				requireDigits: true,
-				requireSymbols: true,
-			},
-			accountRecovery: cognito.AccountRecovery.NONE,
-			email: cognito.UserPoolEmail.withCognito(),
-			removalPolicy: cdk.RemovalPolicy.DESTROY,
-		});
+		const cognitoConstruct = new CognitoConstruct(this, 'Cognito', { stageName });
 
-		const userPoolClient = new cognito.UserPoolClient(this, `OinaUserPoolClient${stageName}`, {
-			userPool,
-			userPoolClientName: `oina-backend-client-${stageName}`,
-			authFlows: {
-				adminUserPassword: true,
-				userPassword: false,
-				userSrp: false,
-				custom: false,
-			},
-			accessTokenValidity: cdk.Duration.hours(1),
-			refreshTokenValidity: cdk.Duration.days(7),
-			idTokenValidity: cdk.Duration.hours(1),
-			generateSecret: false,
-			preventUserExistenceErrors: true,
-		});
+		const dynamoDbConstruct = new DynamoDbConstruct(this, 'DynamoDb', { stageName });
 
-		const usersTable = new dynamodb.Table(this, `UsersTable${stageName}`, {
-			tableName: `oina-users-${stageName}`,
-			partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-			removalPolicy: cdk.RemovalPolicy.DESTROY,
-		});
-		usersTable.addGlobalSecondaryIndex({
-			indexName: 'email-index',
-			partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
-		});
-		usersTable.addGlobalSecondaryIndex({
-			indexName: 'username-index',
-			partitionKey: { name: 'username', type: dynamodb.AttributeType.STRING },
-		});
+		const s3Construct = new S3Construct(this, 'S3', { stageName });
 
-		const otpCodesTable = new dynamodb.Table(this, `OTPCodesTable${stageName}`, {
-			tableName: `oina-otp-codes-${stageName}`,
-			partitionKey: { name: 'email', type: dynamodb.AttributeType.STRING },
-			sortKey: { name: 'type', type: dynamodb.AttributeType.STRING },
-			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-			timeToLiveAttribute: 'expiresAt',
-			removalPolicy: cdk.RemovalPolicy.DESTROY,
+		const iamConstruct = new IamConstruct(this, 'Iam', {
+			stageName,
+			usersTable: dynamoDbConstruct.usersTable,
+			otpCodesTable: dynamoDbConstruct.otpCodesTable,
+			tokenBlacklistTable: dynamoDbConstruct.tokenBlacklistTable,
+			gamesTable: dynamoDbConstruct.gamesTable,
+			gameVersionsTable: dynamoDbConstruct.gameVersionsTable,
+			gameResultsTable: dynamoDbConstruct.gameResultsTable,
+			gameLikesTable: dynamoDbConstruct.gameLikesTable,
+			gameViewsTable: dynamoDbConstruct.gameViewsTable,
+			userPool: cognitoConstruct.userPool,
+			avatarBucket: s3Construct.avatarBucket,
+			gamesCoverBucket: s3Construct.gamesCoverBucket,
+			giftsTable: dynamoDbConstruct.giftsTable,
+			giftsBucket: s3Construct.giftsBucket,
 		});
-
-		const tokenBlacklistTable = new dynamodb.Table(this, `TokenBlacklistTable${stageName}`, {
-			tableName: `oina-token-blacklist-${stageName}`,
-			partitionKey: { name: 'jti', type: dynamodb.AttributeType.STRING },
-			billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-			timeToLiveAttribute: 'expiresAt',
-			removalPolicy: cdk.RemovalPolicy.DESTROY,
-		});
-		tokenBlacklistTable.addGlobalSecondaryIndex({
-			indexName: 'userId-blacklistedAt-index',
-			partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
-			sortKey: { name: 'blacklistedAt', type: dynamodb.AttributeType.STRING },
-		});
-
-		const authLambdaRole = new iam.Role(this, `AuthLambdaRole${stageName}`, {
-			assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-			managedPolicies: [
-				iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-			],
-		});
-
-		usersTable.grantReadWriteData(authLambdaRole);
-		otpCodesTable.grantReadWriteData(authLambdaRole);
-		tokenBlacklistTable.grantReadWriteData(authLambdaRole);
-
-		authLambdaRole.addToPolicy(
-			new iam.PolicyStatement({
-				actions: [
-					'cognito-idp:AdminCreateUser',
-					'cognito-idp:AdminSetUserPassword',
-					'cognito-idp:AdminGetUser',
-					'cognito-idp:AdminDeleteUser',
-					'cognito-idp:AdminUpdateUserAttributes',
-				],
-				resources: [userPool.userPoolArn],
-			})
-		);
 
 		const sharedEnv: Record<string, string> = {
 			STAGE_NAME: stageName,
-			DYNAMODB_USERS_TABLE: usersTable.tableName,
-			DYNAMODB_OTP_TABLE: otpCodesTable.tableName,
-			DYNAMODB_BLACKLIST_TABLE: tokenBlacklistTable.tableName,
-			COGNITO_USER_POOL_ID: userPool.userPoolId,
-			COGNITO_CLIENT_ID: userPoolClient.userPoolClientId,
+			DYNAMODB_USERS_TABLE: dynamoDbConstruct.usersTable.tableName,
+			AVATAR_BUCKET_NAME: s3Construct.avatarBucket.bucketName,
+			DYNAMODB_OTP_TABLE: dynamoDbConstruct.otpCodesTable.tableName,
+			DYNAMODB_BLACKLIST_TABLE: dynamoDbConstruct.tokenBlacklistTable.tableName,
+			COGNITO_USER_POOL_ID: cognitoConstruct.userPool.userPoolId,
+			COGNITO_CLIENT_ID: cognitoConstruct.userPoolClient.userPoolClientId,
+			JWT_SECRET: env.jwtSecret,
+			SMTP_HOST: env.smtpHost,
+			SMTP_PORT: env.smtpPort,
+			SMTP_USER: env.smtpUser,
+			SMTP_PASSWORD: env.smtpPassword,
+			SMTP_FROM: env.smtpFrom,
 		};
 
-		const createAuthLambda = (id: string, entry: string) =>
-			new lambdaNodejs.NodejsFunction(this, `${id}${stageName}`, {
-				functionName: `oina-auth-${id.toLowerCase().replace(/lambda$/, '')}-${stageName}`,
-				entry: path.join(__dirname, '../src/handlers/auth', entry),
-				handler: 'handler',
-				runtime: lambda.Runtime.NODEJS_20_X,
-				role: authLambdaRole,
-				timeout: cdk.Duration.seconds(30),
-				memorySize: 256,
-				bundling: {
-					minify: false,
-					sourceMap: true,
-					externalModules: [],
-				},
-				environment: sharedEnv,
-			});
+		const gameEnv: Record<string, string> = {
+			...sharedEnv,
+			DYNAMODB_GAMES_TABLE: dynamoDbConstruct.gamesTable.tableName,
+			DYNAMODB_GAME_VERSIONS_TABLE: dynamoDbConstruct.gameVersionsTable.tableName,
+			DYNAMODB_GAME_RESULTS_TABLE: dynamoDbConstruct.gameResultsTable.tableName,
+			DYNAMODB_GAME_LIKES_TABLE: dynamoDbConstruct.gameLikesTable.tableName,
+			DYNAMODB_GAME_VIEWS_TABLE: dynamoDbConstruct.gameViewsTable.tableName,
+			GAME_COVER_BUCKET_NAME: s3Construct.gamesCoverBucket.bucketName,
+		};
 
-		const registerFn = createAuthLambda('RegisterLambda', 'register.ts');
-		const verifyEmailFn = createAuthLambda('VerifyEmailLambda', 'verify-email.ts');
-		const resendCodeFn = createAuthLambda('ResendCodeLambda', 'resend-code.ts');
-		const loginFn = createAuthLambda('LoginLambda', 'login.ts');
-		const logoutFn = createAuthLambda('LogoutLambda', 'logout.ts');
-		const refreshTokenFn = createAuthLambda('RefreshTokenLambda', 'refresh-token.ts');
-		const forgotPasswordFn = createAuthLambda('ForgotPasswordLambda', 'forgot-password.ts');
-		const resetPasswordFn = createAuthLambda('ResetPasswordLambda', 'reset-password.ts');
-		const validateTokenFn = createAuthLambda('ValidateTokenLambda', 'validate-token.ts');
+		const giftEnv: Record<string, string> = {
+			...sharedEnv,
+			DYNAMODB_GIFTS_TABLE: dynamoDbConstruct.giftsTable.tableName,
+			GIFTS_BUCKET_NAME: s3Construct.giftsBucket.bucketName,
+			GEMINI_API_KEY: env.geminiApiKey,
+		};
 
-		const api = new apigateway.RestApi(this, `OinaApi${stageName}`, {
-			restApiName: `oina-api-${stageName}`,
-			description: 'OINA Backend API',
-			defaultCorsPreflightOptions: {
-				allowOrigins: apigateway.Cors.ALL_ORIGINS,
-				allowMethods: apigateway.Cors.ALL_METHODS,
-				allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-			},
-			deployOptions: {
-				stageName,
-			},
+		const authLambdas = new AuthLambdasConstruct(this, 'AuthLambdas', {
+			stageName,
+			role: iamConstruct.authLambdaRole,
+			environment: sharedEnv,
 		});
 
-		const authResource = api.root.addResource('auth');
+		const gameLambdas = new GameLambdasConstruct(this, 'GameLambdas', {
+			stageName,
+			role: iamConstruct.gameLambdaRole,
+			environment: gameEnv,
+		});
 
-		const addPost = (resource: apigateway.Resource, routePath: string, fn: lambda.Function) => {
-			const child = resource.addResource(routePath);
-			child.addMethod('POST', new apigateway.LambdaIntegration(fn));
-			return child;
-		};
+		const giftLambdas = new GiftLambdasConstruct(this, 'GiftLambdas', {
+			stageName,
+			role: iamConstruct.giftLambdaRole,
+			environment: giftEnv,
+		});
 
-		addPost(authResource, 'register', registerFn);
-		addPost(authResource, 'verify-email', verifyEmailFn);
-		addPost(authResource, 'resend-verification-code', resendCodeFn);
-		addPost(authResource, 'login', loginFn);
-		addPost(authResource, 'logout', logoutFn);
-		addPost(authResource, 'refresh-token', refreshTokenFn);
-		addPost(authResource, 'forgot-password', forgotPasswordFn);
-		addPost(authResource, 'reset-password', resetPasswordFn);
-		addPost(authResource, 'validate-token', validateTokenFn);
+		iamConstruct.giftLambdaRole.addToPrincipalPolicy(new iam.PolicyStatement({
+			actions: ['lambda:InvokeFunction'],
+			resources: [
+				`arn:${cdk.Aws.PARTITION}:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:oina-gift-worker-${stageName}`,
+			],
+		}));
 
-		if (domainName && certificateArn && hostedZoneDomain) {
-			const certificate = certificatemanager.Certificate.fromCertificateArn(
-				this,
-				`ApiCertificate${stageName}`,
-				certificateArn
-			);
-
-			const customDomain = new apigateway.DomainName(this, `ApiDomain${stageName}`, {
-				domainName,
-				certificate,
-				endpointType: apigateway.EndpointType.REGIONAL,
-				securityPolicy: apigateway.SecurityPolicy.TLS_1_2,
-			});
-
-			new apigateway.BasePathMapping(this, `ApiBasePathMapping${stageName}`, {
-				domainName: customDomain,
-				restApi: api,
-				stage: api.deploymentStage,
-			});
-
-			const hostedZone = route53.HostedZone.fromLookup(this, `HostedZone${stageName}`, {
-				domainName: hostedZoneDomain,
-			});
-
-			new route53.ARecord(this, `ApiAliasRecord${stageName}`, {
-				zone: hostedZone,
-				recordName: domainName,
-				target: route53.RecordTarget.fromAlias(new targets.ApiGatewayDomain(customDomain)),
-			});
-		}
+		const apiConstruct = new ApiConstruct(this, 'Api', {
+			stageName,
+			domainName: env.domainName,
+			certificateArn: env.certificateArn,
+			hostedZoneId: env.hostedZoneId,
+			hostedZoneName: env.hostedZoneName,
+			authLambdas,
+			gameLambdas,
+			giftLambdas,
+		});
 
 		new cdk.CfnOutput(this, `ApiUrl${stageName}`, {
-			value: api.url,
+			value: apiConstruct.api.url,
 			description: 'Base URL of the OINA API',
 		});
+		new cdk.CfnOutput(this, `DocsUrl${stageName}`, {
+			value: `${apiConstruct.api.url}docs`,
+			description: 'Swagger UI URL of the OINA API',
+		});
 		new cdk.CfnOutput(this, `UserPoolId${stageName}`, {
-			value: userPool.userPoolId,
+			value: cognitoConstruct.userPool.userPoolId,
 			description: 'Cognito User Pool ID',
 		});
 		new cdk.CfnOutput(this, `UserPoolClientId${stageName}`, {
-			value: userPoolClient.userPoolClientId,
+			value: cognitoConstruct.userPoolClient.userPoolClientId,
 			description: 'Cognito User Pool Client ID',
 		});
 	}

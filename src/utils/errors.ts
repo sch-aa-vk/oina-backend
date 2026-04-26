@@ -34,4 +34,33 @@ export const Errors = {
     new AppError(400, 'VALIDATION_ERROR', 'Request validation failed', details),
 
   INTERNAL_ERROR: () => new AppError(500, 'INTERNAL_ERROR', 'An internal server error occurred'),
+
+  // Game errors
+  GAME_NOT_FOUND: () => new AppError(404, 'GAME_NOT_FOUND', 'Game not found'),
+  GAME_FORBIDDEN: () => new AppError(403, 'GAME_FORBIDDEN', 'You do not have access to this game'),
+  GAME_NOT_DELETED: () => new AppError(409, 'GAME_NOT_DELETED', 'Game is not deleted and cannot be restored'),
+  QUOTA_MONTHLY_GAMES_EXCEEDED: () =>
+    new AppError(409, 'QUOTA_MONTHLY_GAMES_EXCEEDED', 'You have reached the limit of 5 games per month'),
+  INVALID_GAME_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_GAME_PAYLOAD', 'Invalid game payload', details),
+  CONTENT_TOO_LARGE: () =>
+    new AppError(413, 'CONTENT_TOO_LARGE', 'Game content exceeds the maximum allowed size of 100KB'),
+  INVALID_REWARD_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_REWARD_PAYLOAD', 'Invalid reward payload', details),
+  INVALID_VISIBILITY_TRANSITION: (from: string, to: string) =>
+    new AppError(400, 'INVALID_VISIBILITY_TRANSITION', `Cannot transition from '${from}' to '${to}'`),
+  PREVIEW_ONLY_FOR_DRAFT: () =>
+    new AppError(400, 'PREVIEW_ONLY_FOR_DRAFT', 'Preview is only available for draft games'),
+  GAME_ALREADY_LIKED: () => new AppError(409, 'GAME_ALREADY_LIKED', 'You have already liked this game'),
+  GAME_NOT_LIKED: () => new AppError(409, 'GAME_NOT_LIKED', 'You have not liked this game'),
+
+  // Profile errors
+  USERNAME_TAKEN: () => new AppError(409, 'USERNAME_TAKEN', 'This username is already taken'),
+
+  // Gift errors
+  INVALID_GIFT_PAYLOAD: (details: Record<string, unknown>) =>
+    new AppError(400, 'INVALID_GIFT_PAYLOAD', 'Invalid gift payload', details),
+  GIFT_NOT_FOUND: () => new AppError(404, 'GIFT_NOT_FOUND', 'Gift not found'),
+  GEMINI_API_ERROR: (message?: string) =>
+    new AppError(502, 'GEMINI_API_ERROR', message ?? 'Gemini API error'),
 };

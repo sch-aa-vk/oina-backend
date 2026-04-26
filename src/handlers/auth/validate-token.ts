@@ -1,6 +1,6 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { requireAuth } from '../../middleware/auth.middleware';
-import { getUserById } from '../../services/auth.service';
+import { getUserById } from '../../services/auth';
 import { successResponse, lambdaResponse, withErrorHandler } from '../handler.utils';
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

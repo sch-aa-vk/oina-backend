@@ -1,5 +1,5 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { refreshAccessToken } from '../../services/token.service';
+import { refreshAccessToken } from '../../services/token';
 import { Errors } from '../../utils/errors';
 import { successResponse, lambdaResponse, withErrorHandler } from '../handler.utils';
 

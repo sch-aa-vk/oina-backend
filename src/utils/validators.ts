@@ -64,6 +64,49 @@ export const validateLoginPayload = (payload: { email?: string; password?: strin
   }
 };
 
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
+
+export const validateProfileUpdatePayload = (payload: {
+  displayName?: unknown;
+  bio?: unknown;
+  username?: unknown;
+}): void => {
+  const errors: Record<string, string> = {};
+
+  if (payload.displayName !== undefined) {
+    if (typeof payload.displayName !== 'string') {
+      errors.displayName = 'Must be a string';
+    } else {
+      const trimmed = payload.displayName.trim();
+      if (trimmed.length < 1) {
+        errors.displayName = 'Must be at least 1 character';
+      } else if (trimmed.length > 100) {
+        errors.displayName = 'Must be at most 100 characters';
+      }
+    }
+  }
+
+  if (payload.bio !== undefined) {
+    if (typeof payload.bio !== 'string') {
+      errors.bio = 'Must be a string';
+    } else if (payload.bio.length > 500) {
+      errors.bio = 'Must be at most 500 characters';
+    }
+  }
+
+  if (payload.username !== undefined) {
+    if (typeof payload.username !== 'string') {
+      errors.username = 'Must be a string';
+    } else if (!USERNAME_REGEX.test(payload.username)) {
+      errors.username = 'Must be 3-30 characters and contain only letters, numbers, and underscores';
+    }
+  }
+
+  if (Object.keys(errors).length > 0) {
+    throw Errors.VALIDATION_ERROR(errors);
+  }
+};
+
 export const validateResetPasswordPayload = (payload: {
   email?: string;
   code?: string;

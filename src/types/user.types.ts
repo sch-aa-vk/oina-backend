@@ -12,6 +12,7 @@ export interface UserRecord {
   createdAt: string;
   updatedAt: string;
   preferences?: UserPreferences;
+  passwordHash?: string;
 }
 
 export interface UserPreferences {
@@ -28,4 +29,10 @@ export interface PublicUserProfile {
   avatarUrl?: string;
   totalGames: number;
   createdAt: string;
+}
+
+export interface UpdateProfilePayload {
+  displayName?: string;
+  bio?: string;
+  username?: string;
 }

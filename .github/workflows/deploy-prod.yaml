@@ -46,7 +46,15 @@ jobs:
           CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME_PROD }}
           CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN_PROD }}
-          HOSTED_ZONE_DOMAIN: ${{ secrets.HOSTED_ZONE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+          HOSTED_ZONE_NAME: ${{ secrets.HOSTED_ZONE_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STAGE_NAME: prod
         run: cdk synth
 
@@ -56,7 +64,15 @@ jobs:
           CDK_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
           DOMAIN_NAME: ${{ secrets.DOMAIN_NAME_PROD }}
           CERTIFICATE_ARN: ${{ secrets.CERTIFICATE_ARN_PROD }}
-          HOSTED_ZONE_DOMAIN: ${{ secrets.HOSTED_ZONE_DOMAIN }}
+          HOSTED_ZONE_ID: ${{ secrets.HOSTED_ZONE_ID }}
+          HOSTED_ZONE_NAME: ${{ secrets.HOSTED_ZONE_NAME }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           STAGE_NAME: prod
         run: cdk deploy --require-approval never
       
