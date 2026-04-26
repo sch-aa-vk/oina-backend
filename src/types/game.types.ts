@@ -144,16 +144,18 @@ export interface GameResultRecord {
   gameResultId: string;
   userId: string;
   gameId: string;
-  score: number;
-  maxScore: number;
+  score?: number;
+  maxScore?: number;
+  outcomeId?: string;
   duration: number;
   completionStatus: CompletionStatus;
   playedAt: string;
 }
 
 export interface RecordGameResultPayload {
-  score: number;
-  maxScore: number;
+  score?: number;
+  maxScore?: number;
+  outcomeId?: string;
   duration: number;
   completionStatus: CompletionStatus;
 }
@@ -163,8 +165,9 @@ export interface GameResultResponse {
   gameId: string;
   gameTitle?: string;
   isGameDeleted?: boolean;
-  score: number;
-  maxScore: number;
+  score?: number;
+  maxScore?: number;
+  outcomeId?: string;
   duration: number;
   completionStatus: CompletionStatus;
   playedAt: string;
