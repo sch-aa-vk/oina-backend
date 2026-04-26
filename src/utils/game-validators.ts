@@ -1,12 +1,10 @@
 import { Errors } from './errors';
 import { CreateGamePayload, UpdateGamePayload, PublishGamePayload, GameContent, Reward, ScoringConfig } from '../types/game.types';
 
-const MAX_CONTENT_BYTES = 100 * 1024; // 100 KB
+const MAX_CONTENT_BYTES = 100 * 1024;
 const VALID_TYPES = ['choose-me', 'guess-by-emoji', 'crossword'];
 const VALID_REWARD_TYPES = ['text', 'image', 'video', 'audio'];
 const MAX_REWARDS = 5;
-
-// ── Internal reward/scoring helpers ──────────────────────────────────────────
 
 const validateScoringConfig = (scoring: unknown): void => {
   if (typeof scoring !== 'object' || scoring === null || Array.isArray(scoring)) {
