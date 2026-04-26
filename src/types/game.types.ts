@@ -1,5 +1,5 @@
 export type GameVisibility = 'draft' | 'private-link' | 'public';
-export type GameType = 'choose-me' | 'guess-by-emoji' | 'crossword' | 'match-three';
+export type GameType = 'choose-me' | 'guess-by-emoji' | 'crossword';
 export type RewardType = 'text' | 'image' | 'video' | 'audio';
 
 export interface ScoringConfig {
