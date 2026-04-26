@@ -3,7 +3,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { GameRecord, GameResponse, GameSummaryResponse, GameVisibility } from '../../types/game.types';
 import { Errors } from '../../utils/errors';
-import { docClient, GAMES_TABLE, USERS_TABLE, MAX_MONTHLY_GAMES, GAME_COVER_BUCKET_NAME } from './_client';
+import { docClient, GAMES_TABLE, USERS_TABLE, GAME_LIKES_TABLE, MAX_MONTHLY_GAMES, GAME_COVER_BUCKET_NAME } from './_client';
 
 const COVER_URL_EXPIRY_SECONDS = 3600;
 
@@ -18,7 +18,18 @@ const resolveCoverUrl = async (key: string): Promise<string> => {
 
 const isCoverKey = (value: string): boolean => value.startsWith('game-covers/');
 
-export const toGameResponse = async (record: GameRecord): Promise<GameResponse> => ({
+const checkUserLikedGame = async (userId: string, gameId: string): Promise<boolean> => {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: GAME_LIKES_TABLE,
+      Key: { likeKey: `${userId}#${gameId}` },
+      ProjectionExpression: 'likeKey',
+    })
+  );
+  return !!result.Item;
+};
+
+export const toGameResponse = async (record: GameRecord, userId?: string): Promise<GameResponse> => ({
   gameId: record.gameId,
   userId: record.userId,
   type: record.type,
@@ -36,6 +47,7 @@ export const toGameResponse = async (record: GameRecord): Promise<GameResponse> 
   viewCount: record.viewCount,
   playCount: record.playCount,
   likeCount: record.likeCount,
+  isLikedByCurrentUser: userId ? await checkUserLikedGame(userId, record.gameId) : undefined,
   createdAt: record.createdAt,
   updatedAt: record.updatedAt,
   currentVersion: record.currentVersion,
@@ -43,38 +55,42 @@ export const toGameResponse = async (record: GameRecord): Promise<GameResponse> 
   deletedAt: record.deletedAt,
 });
 
-export const toGameSummaryResponse = async (record: GameRecord): Promise<GameSummaryResponse> => {
-  const userResult = await docClient.send(
-    new GetCommand({
-      TableName: USERS_TABLE,
-      Key: { userId: record.userId },
-      ProjectionExpression: 'username, displayName',
-    })
-  );
+export const toGameSummaryResponse = async (record: GameRecord, userId?: string): Promise<GameSummaryResponse> => {
+  const [userResult, isLikedByCurrentUser] = await Promise.all([
+    docClient.send(
+      new GetCommand({
+        TableName: USERS_TABLE,
+        Key: { userId: record.userId },
+        ProjectionExpression: 'username, displayName',
+      })
+    ),
+    userId ? checkUserLikedGame(userId, record.gameId) : Promise.resolve(undefined),
+  ]);
   const user = userResult.Item as { username?: string; displayName?: string } | undefined;
   const authorName = user?.displayName ?? user?.username;
 
   return {
-  gameId: record.gameId,
-  userId: record.userId,
-  authorName,
-  type: record.type,
-  title: record.title,
-  description: record.description,
-  thumbnail: record.thumbnail && isCoverKey(record.thumbnail)
-    ? await resolveCoverUrl(record.thumbnail)
-    : record.thumbnail,
-  category: record.category,
-  tags: record.tags,
-  visibility: record.visibility,
-  publishedAt: record.publishedAt,
-  shareLink: record.shareLink,
-  viewCount: record.viewCount,
-  playCount: record.playCount,
-  likeCount: record.likeCount,
-  createdAt: record.createdAt,
-  updatedAt: record.updatedAt,
-  isDeleted: record.isDeleted,
+    gameId: record.gameId,
+    userId: record.userId,
+    authorName,
+    type: record.type,
+    title: record.title,
+    description: record.description,
+    thumbnail: record.thumbnail && isCoverKey(record.thumbnail)
+      ? await resolveCoverUrl(record.thumbnail)
+      : record.thumbnail,
+    category: record.category,
+    tags: record.tags,
+    visibility: record.visibility,
+    publishedAt: record.publishedAt,
+    shareLink: record.shareLink,
+    viewCount: record.viewCount,
+    playCount: record.playCount,
+    likeCount: record.likeCount,
+    isLikedByCurrentUser,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    isDeleted: record.isDeleted,
   };
 };
 

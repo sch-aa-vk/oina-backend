@@ -11,7 +11,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     const gameId = event.pathParameters?.gameId;
     if (!gameId) throw Errors.INVALID_GAME_PAYLOAD({ gameId: 'gameId path parameter is required' });
 
-    const game = await getUserGame(gameId);
+    const game = await getUserGame(gameId, tokenPayload?.userId);
 
     console.log(JSON.stringify({
       requestId: event.requestContext?.requestId,

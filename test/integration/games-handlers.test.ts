@@ -75,6 +75,7 @@ beforeEach(() => {
   process.env.DYNAMODB_GAME_VERSIONS_TABLE = "oina-game-versions-test";
   process.env.DYNAMODB_USERS_TABLE = "oina-users-test";
   process.env.DYNAMODB_BLACKLIST_TABLE = "oina-blacklist-test";
+  process.env.DYNAMODB_GAME_LIKES_TABLE = "oina-game-likes-test";
   process.env.JWT_SECRET = "test-secret";
 });
 
@@ -83,6 +84,7 @@ describe("GET /games/{gameId} handler", () => {
     mockSend.mockResolvedValueOnce({
       Item: { ...mockGame, visibility: "public" },
     });
+    mockSend.mockResolvedValueOnce({ Item: undefined }); // checkUserLikedGame
 
     const result = await getGame(
       makeEvent({ pathParameters: { gameId: "game-1" } }),

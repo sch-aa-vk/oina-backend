@@ -11,8 +11,9 @@ export const listPublicGames = async (params: {
   type?: GameType;
   search?: string;
   cursor?: string;
+  userId?: string;
 }): Promise<PublicGameListResponse> => {
-  const { sortBy = 'newest', category, type, search, cursor } = params;
+  const { sortBy = 'popular', category, type, search, cursor, userId } = params;
   const exclusiveStartKey = cursor
     ? (JSON.parse(Buffer.from(cursor, 'base64').toString()) as Record<string, unknown>)
     : undefined;
@@ -70,7 +71,7 @@ export const listPublicGames = async (params: {
     ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
   }));
 
-  const games = await Promise.all((result.Items ?? []).map(item => toGameSummaryResponse(item as GameRecord)));
+  const games = await Promise.all((result.Items ?? []).map(item => toGameSummaryResponse(item as GameRecord, userId)));
   const nextCursor = result.LastEvaluatedKey
     ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
     : undefined;
