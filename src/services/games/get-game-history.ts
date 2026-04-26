@@ -20,7 +20,7 @@ export const getGameHistory = async (userId: string): Promise<GameHistoryRespons
   const bestByGame = new Map<string, GameResultRecord>();
   for (const record of records) {
     const existing = bestByGame.get(record.gameId);
-    if (!existing || record.score > existing.score) {
+    if (!existing || (record.score ?? -1) > (existing.score ?? -1)) {
       bestByGame.set(record.gameId, record);
     }
   }
