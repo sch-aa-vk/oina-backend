@@ -84,7 +84,7 @@ describe("GET /games/{gameId} handler", () => {
     mockSend.mockResolvedValueOnce({
       Item: { ...mockGame, visibility: "public" },
     });
-    mockSend.mockResolvedValueOnce({ Item: undefined }); // checkUserLikedGame
+    mockSend.mockResolvedValueOnce({ Item: undefined });
 
     const result = await getGame(
       makeEvent({ pathParameters: { gameId: "game-1" } }),

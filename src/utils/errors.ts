@@ -35,7 +35,6 @@ export const Errors = {
 
   INTERNAL_ERROR: () => new AppError(500, 'INTERNAL_ERROR', 'An internal server error occurred'),
 
-  // Game errors
   GAME_NOT_FOUND: () => new AppError(404, 'GAME_NOT_FOUND', 'Game not found'),
   GAME_FORBIDDEN: () => new AppError(403, 'GAME_FORBIDDEN', 'You do not have access to this game'),
   GAME_NOT_DELETED: () => new AppError(409, 'GAME_NOT_DELETED', 'Game is not deleted and cannot be restored'),
@@ -54,10 +53,8 @@ export const Errors = {
   GAME_ALREADY_LIKED: () => new AppError(409, 'GAME_ALREADY_LIKED', 'You have already liked this game'),
   GAME_NOT_LIKED: () => new AppError(409, 'GAME_NOT_LIKED', 'You have not liked this game'),
 
-  // Profile errors
   USERNAME_TAKEN: () => new AppError(409, 'USERNAME_TAKEN', 'This username is already taken'),
 
-  // Gift errors
   INVALID_GIFT_PAYLOAD: (details: Record<string, unknown>) =>
     new AppError(400, 'INVALID_GIFT_PAYLOAD', 'Invalid gift payload', details),
   GIFT_NOT_FOUND: () => new AppError(404, 'GIFT_NOT_FOUND', 'Gift not found'),

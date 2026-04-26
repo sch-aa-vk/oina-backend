@@ -9,7 +9,7 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
       description: 'Authentication API for OINA backend.',
     },
     servers: [{ url: '/' }],
-    tags: [{ name: 'Auth' }, { name: 'Users' }, { name: 'Games' }],
+    tags: [{ name: 'Auth' }, { name: 'Users' }, { name: 'Games' }, { name: 'Gifts' }],
     components: {
       securitySchemes: {
         bearerAuth: {
@@ -115,7 +115,6 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             },
           },
         },
-        // ── Profile schemas ───────────────────────────────────────────────────
         UpdateProfileRequest: {
           type: 'object',
           properties: {
@@ -142,7 +141,6 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             avatarUrl: { type: 'string', example: 'https://oina-avatars-dev.s3.amazonaws.com/avatars/user-id' },
           },
         },
-        // ── Games schemas ─────────────────────────────────────────────────────
         ScoringConfig: {
           type: 'object',
           properties: {
@@ -171,6 +169,13 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             description: { type: 'string', maxLength: 1000, nullable: true, example: 'Birthday surprise game' },
             category: { type: 'string', nullable: true, example: 'quiz' },
             tags: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 30 }, maxItems: 10, example: ['birthday', 'friends'] },
+            coverImageContentType: {
+              type: 'string',
+              enum: ['image/jpeg', 'image/png', 'image/webp'],
+              nullable: true,
+              example: 'image/jpeg',
+              description: 'If provided, a presigned upload URL is returned in coverUploadUrl',
+            },
             content: {
               type: 'object',
               required: [],
@@ -192,6 +197,13 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             tags: { type: 'array', items: { type: 'string', minLength: 1, maxLength: 30 }, maxItems: 10 },
             content: { type: 'object', additionalProperties: true },
             changeLog: { type: 'string', nullable: true, example: 'Added more questions' },
+            coverImageContentType: {
+              type: 'string',
+              enum: ['image/jpeg', 'image/png', 'image/webp'],
+              nullable: true,
+              example: 'image/jpeg',
+              description: 'If provided, a presigned upload URL is returned in coverUploadUrl',
+            },
           },
         },
         PublishGameRequest: {
@@ -220,6 +232,10 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             viewCount: { type: 'number', example: 0 },
             playCount: { type: 'number', example: 0 },
             likeCount: { type: 'number', example: 0 },
+            isLikedByCurrentUser: { type: 'boolean', nullable: true, example: false },
+            isDeleted: { type: 'boolean', nullable: true, example: false },
+            deletedAt: { type: 'string', format: 'date-time', nullable: true },
+            coverUploadUrl: { type: 'string', nullable: true, description: 'Presigned S3 PUT URL, present only when coverImageContentType was provided in the request' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
             currentVersion: { type: 'number', example: 1 },
@@ -232,6 +248,71 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             nextCursor: { type: 'string', nullable: true, example: null },
           },
         },
+        GameSummaryResponse: {
+          type: 'object',
+          description: 'Lightweight game representation used in public listings',
+          properties: {
+            gameId: { type: 'string', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
+            userId: { type: 'string', example: '9f31ce1d-6d0a-4973-99ed-e5fd755f8121' },
+            authorName: { type: 'string', nullable: true, example: 'alice' },
+            type: { type: 'string', enum: ['choose-me', 'guess-by-emoji', 'crossword'] },
+            title: { type: 'string', example: 'How well do you know me?' },
+            description: { type: 'string', nullable: true },
+            thumbnail: { type: 'string', nullable: true },
+            category: { type: 'string', nullable: true },
+            tags: { type: 'array', items: { type: 'string' } },
+            visibility: { type: 'string', enum: ['draft', 'private-link', 'public'] },
+            publishedAt: { type: 'string', format: 'date-time', nullable: true },
+            shareLink: { type: 'string', nullable: true },
+            viewCount: { type: 'number', example: 42 },
+            playCount: { type: 'number', example: 10 },
+            likeCount: { type: 'number', example: 5 },
+            isLikedByCurrentUser: { type: 'boolean', nullable: true, example: false },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            isDeleted: { type: 'boolean', nullable: true, example: false },
+          },
+        },
+        PublicGameListResponse: {
+          type: 'object',
+          properties: {
+            games: { type: 'array', items: { $ref: '#/components/schemas/GameSummaryResponse' } },
+            nextCursor: { type: 'string', nullable: true, example: null },
+          },
+        },
+        RecordGameResultRequest: {
+          type: 'object',
+          required: ['duration', 'completionStatus'],
+          properties: {
+            score: { type: 'number', nullable: true, example: 80 },
+            maxScore: { type: 'number', nullable: true, example: 100 },
+            outcomeId: { type: 'string', nullable: true, example: 'outcome-42' },
+            duration: { type: 'number', description: 'Duration in seconds', example: 120 },
+            completionStatus: { type: 'string', enum: ['completed', 'abandoned'], example: 'completed' },
+          },
+        },
+        GameResultResponse: {
+          type: 'object',
+          properties: {
+            gameResultId: { type: 'string', example: 'abc123' },
+            gameId: { type: 'string', example: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' },
+            gameTitle: { type: 'string', nullable: true, example: 'How well do you know me?' },
+            isGameDeleted: { type: 'boolean', nullable: true, example: false },
+            score: { type: 'number', nullable: true, example: 80 },
+            maxScore: { type: 'number', nullable: true, example: 100 },
+            outcomeId: { type: 'string', nullable: true, example: 'outcome-42' },
+            duration: { type: 'number', example: 120 },
+            completionStatus: { type: 'string', enum: ['completed', 'abandoned'], example: 'completed' },
+            playedAt: { type: 'string', format: 'date-time', example: '2026-04-27T10:00:00.000Z' },
+          },
+        },
+        GameHistoryResponse: {
+          type: 'object',
+          properties: {
+            results: { type: 'array', items: { $ref: '#/components/schemas/GameResultResponse' } },
+            nextCursor: { type: 'string', nullable: true, example: null },
+          },
+        },
         VersionResponse: {
           type: 'object',
           properties: {
@@ -241,6 +322,54 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             changeLog: { type: 'string', example: 'Added more questions' },
             visibility: { type: 'string', enum: ['draft', 'private-link', 'public'] },
             createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        GenerateGiftRequest: {
+          type: 'object',
+          required: [
+            'recipientName', 'occasion', 'personalMessage', 'tone',
+            'themeName', 'themeDirection', 'templateLabel', 'templateBlueprint',
+            'variationLabel', 'variationBlueprint', 'variationDescription',
+          ],
+          properties: {
+            recipientName: { type: 'string', example: 'Bob' },
+            occasion: { type: 'string', example: 'Birthday' },
+            personalMessage: { type: 'string', example: 'Wishing you a wonderful day!' },
+            tone: { type: 'string', example: 'warm' },
+            themeName: { type: 'string', example: 'Celebration' },
+            themeDirection: { type: 'string', example: 'festive and joyful' },
+            templateLabel: { type: 'string', example: 'Classic Card' },
+            templateBlueprint: { type: 'string', example: 'template-v1' },
+            variationLabel: { type: 'string', example: 'Confetti' },
+            variationBlueprint: { type: 'string', example: 'variation-confetti' },
+            variationDescription: { type: 'string', example: 'Colorful confetti animation on a white background' },
+          },
+        },
+        GiftRecord: {
+          type: 'object',
+          properties: {
+            giftId: { type: 'string', example: 'd290f1ee-6c54-4b01-90e6-d701748f0851' },
+            userId: { type: 'string', example: '9f31ce1d-6d0a-4973-99ed-e5fd755f8121' },
+            recipientName: { type: 'string', example: 'Bob' },
+            occasion: { type: 'string', example: 'Birthday' },
+            s3Key: { type: 'string', example: 'gifts/d290f1ee-6c54-4b01-90e6-d701748f0851.html' },
+            createdAt: { type: 'string', format: 'date-time', example: '2026-04-27T10:00:00.000Z' },
+            status: { type: 'string', enum: ['GENERATING', 'READY', 'ERROR'], example: 'READY' },
+            errorMessage: { type: 'string', nullable: true },
+          },
+        },
+        GiftListResponse: {
+          type: 'object',
+          properties: {
+            gifts: { type: 'array', items: { $ref: '#/components/schemas/GiftRecord' } },
+            nextCursor: { type: 'string', nullable: true, example: null },
+          },
+        },
+        GetGiftResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['GENERATING', 'READY', 'ERROR'], example: 'READY' },
+            html: { type: 'string', nullable: true, description: 'Rendered HTML content, present only when status is READY' },
           },
         },
       },
@@ -699,7 +828,6 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
       '/openapi.json': {
         get: { summary: 'OpenAPI spec JSON', responses: { '200': { description: 'OK' } } },
       },
-      // ── User profile endpoints ───────────────────────────────────────────────
       '/users/me': {
         get: {
           tags: ['Users'],
@@ -822,7 +950,6 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
           },
         },
       },
-      // ── Games endpoints ─────────────────────────────────────────────────────
       '/games': {
         post: {
           tags: ['Games'],
@@ -874,11 +1001,77 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
           },
         },
       },
+      '/games/public': {
+        get: {
+          tags: ['Games'],
+          summary: 'List publicly visible games',
+          description: 'Returns published games sorted by popularity or recency. Auth is optional — when provided, isLikedByCurrentUser is populated.',
+          parameters: [
+            {
+              name: 'sortBy',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['newest', 'popular'], default: 'popular' },
+              description: 'Sort order',
+            },
+            {
+              name: 'type',
+              in: 'query',
+              required: false,
+              schema: { type: 'string', enum: ['choose-me', 'guess-by-emoji', 'crossword'] },
+              description: 'Filter by game type',
+            },
+            { name: 'category', in: 'query', required: false, schema: { type: 'string' }, description: 'Filter by category' },
+            { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Full-text search on title' },
+            { name: 'cursor', in: 'query', required: false, schema: { type: 'string' }, description: 'Pagination cursor' },
+          ],
+          responses: {
+            '200': {
+              description: 'Public game list',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Public games retrieved',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: { games: [], nextCursor: null },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      '/games/history': {
+        get: {
+          tags: ['Games'],
+          summary: 'Get the authenticated user\'s game play history',
+          security: [{ bearerAuth: [] }],
+          responses: {
+            '200': {
+              description: 'Play history',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Game history retrieved',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: { results: [], nextCursor: null },
+                  },
+                },
+              },
+            },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
       '/games/{gameId}': {
         get: {
           tags: ['Games'],
           summary: 'Get a specific game',
-          security: [{ bearerAuth: [] }],
+          description: 'Auth is optional — when provided, isLikedByCurrentUser is populated and the owner can access draft games.',
           parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
           responses: {
             '200': { description: 'Game data', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } },
@@ -951,6 +1144,20 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
           },
         },
       },
+      '/games/{gameId}/restore': {
+        post: {
+          tags: ['Games'],
+          summary: 'Restore a soft-deleted game',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': { description: 'Game restored', content: { 'application/json': { schema: { $ref: '#/components/schemas/SuccessEnvelope' } } } },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '403': { description: 'Forbidden', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '404': { description: 'Not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
       '/games/{gameId}/preview': {
         get: {
           tags: ['Games'],
@@ -966,6 +1173,109 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
           },
         },
       },
+      '/games/{gameId}/play': {
+        post: {
+          tags: ['Games'],
+          summary: 'Record a game play result',
+          description: 'Auth is optional — anonymous plays are recorded without a userId.',
+          parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/RecordGameResultRequest' },
+                example: { score: 80, maxScore: 100, duration: 120, completionStatus: 'completed' },
+              },
+            },
+          },
+          responses: {
+            '201': {
+              description: 'Result recorded',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 201,
+                    message: 'Result recorded',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: {
+                      gameResultId: 'abc123',
+                      gameId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+                      gameTitle: 'How well do you know me?',
+                      score: 80,
+                      maxScore: 100,
+                      duration: 120,
+                      completionStatus: 'completed',
+                      playedAt: '2026-04-27T10:00:00.000Z',
+                    },
+                  },
+                },
+              },
+            },
+            '404': { description: 'Game not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/games/{gameId}/like': {
+        post: {
+          tags: ['Games'],
+          summary: 'Like a game',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Game liked',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: { statusCode: 200, message: 'Game liked', timestamp: '2026-04-27T10:00:00.000Z', data: null },
+                },
+              },
+            },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '404': { description: 'Game not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+        delete: {
+          tags: ['Games'],
+          summary: 'Unlike a game',
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Game unliked',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: { statusCode: 200, message: 'Game unliked', timestamp: '2026-04-27T10:00:00.000Z', data: null },
+                },
+              },
+            },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '404': { description: 'Game not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/games/{gameId}/view': {
+        post: {
+          tags: ['Games'],
+          summary: 'Track a game view',
+          description: 'Auth is optional — anonymous views are counted without a userId.',
+          parameters: [{ name: 'gameId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'View recorded',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: { statusCode: 200, message: 'View recorded', timestamp: '2026-04-27T10:00:00.000Z', data: null },
+                },
+              },
+            },
+            '404': { description: 'Game not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
       '/games/{gameId}/versions': {
         get: {
           tags: ['Games'],
@@ -977,6 +1287,105 @@ export const handler = async (_event: APIGatewayProxyEvent): Promise<APIGatewayP
             '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
             '403': { description: 'Forbidden', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
             '404': { description: 'Not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/gifts/generate': {
+        post: {
+          tags: ['Gifts'],
+          summary: 'Generate a personalised gift page',
+          description: 'Starts async AI generation. Returns immediately with a giftId. Poll GET /gifts/{giftId} to check status.',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GenerateGiftRequest' },
+                example: {
+                  recipientName: 'Bob',
+                  occasion: 'Birthday',
+                  personalMessage: 'Wishing you a wonderful day!',
+                  tone: 'warm',
+                  themeName: 'Celebration',
+                  themeDirection: 'festive and joyful',
+                  templateLabel: 'Classic Card',
+                  templateBlueprint: 'template-v1',
+                  variationLabel: 'Confetti',
+                  variationBlueprint: 'variation-confetti',
+                  variationDescription: 'Colorful confetti animation on a white background',
+                },
+              },
+            },
+          },
+          responses: {
+            '202': {
+              description: 'Generation started',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 202,
+                    message: 'Gift generation started',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: { giftId: 'd290f1ee-6c54-4b01-90e6-d701748f0851' },
+                  },
+                },
+              },
+            },
+            '400': { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/gifts/mine': {
+        get: {
+          tags: ['Gifts'],
+          summary: 'List gifts created by the authenticated user',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'cursor', in: 'query', required: false, schema: { type: 'string' }, description: 'Pagination cursor' },
+          ],
+          responses: {
+            '200': {
+              description: 'Gift list',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Gifts retrieved',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: { gifts: [], nextCursor: null },
+                  },
+                },
+              },
+            },
+            '401': { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
+          },
+        },
+      },
+      '/gifts/{giftId}': {
+        get: {
+          tags: ['Gifts'],
+          summary: 'Get a gift by ID',
+          description: 'No auth required — share the giftId with the recipient to let them view the gift.',
+          parameters: [{ name: 'giftId', in: 'path', required: true, schema: { type: 'string' } }],
+          responses: {
+            '200': {
+              description: 'Gift status and HTML content',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/SuccessEnvelope' },
+                  example: {
+                    statusCode: 200,
+                    message: 'Gift retrieved',
+                    timestamp: '2026-04-27T10:00:00.000Z',
+                    data: { status: 'READY', html: '<!DOCTYPE html>...' },
+                  },
+                },
+              },
+            },
+            '404': { description: 'Gift not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorEnvelope' } } } },
           },
         },
       },
