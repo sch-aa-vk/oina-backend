@@ -1,14 +1,26 @@
 import { v4 as uuidv4 } from 'uuid';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { UpdateCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { UpdateGamePayload, GameVersionRecord, GameResponse } from '../../types/game.types';
-import { docClient, GAMES_TABLE, GAME_VERSIONS_TABLE } from './_client';
+import { Errors } from '../../utils/errors';
+import { docClient, GAMES_TABLE, GAME_VERSIONS_TABLE, GAME_COVER_BUCKET_NAME } from './_client';
 import { getGameOrThrow, assertOwner, toGameResponse } from './_helpers';
+
+const ALLOWED_COVER_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const COVER_UPLOAD_URL_EXPIRY_SECONDS = 300;
 
 export const updateGame = async (
   userId: string,
   gameId: string,
   payload: UpdateGamePayload
 ): Promise<GameResponse> => {
+  if (payload.coverImageContentType && !ALLOWED_COVER_CONTENT_TYPES.includes(payload.coverImageContentType as typeof ALLOWED_COVER_CONTENT_TYPES[number])) {
+    throw Errors.VALIDATION_ERROR({
+      coverImageContentType: `Must be one of: ${ALLOWED_COVER_CONTENT_TYPES.join(', ')}`,
+    });
+  }
+
   const game = await getGameOrThrow(gameId);
   assertOwner(game, userId);
 
@@ -48,6 +60,10 @@ export const updateGame = async (
     updateExpressionParts.push('content = :content');
     expressionAttributeValues[':content'] = payload.content;
   }
+  if (payload.coverImageContentType !== undefined) {
+    updateExpressionParts.push('thumbnail = :thumbnail');
+    expressionAttributeValues[':thumbnail'] = `game-covers/${gameId}`;
+  }
 
   const versionRecord: GameVersionRecord = {
     versionId: uuidv4(),
@@ -79,6 +95,21 @@ export const updateGame = async (
   ]);
 
   const updated = await getGameOrThrow(gameId);
-  return toGameResponse(updated);
+  const response = await toGameResponse(updated);
 
+  let coverUploadUrl: string | undefined;
+  if (payload.coverImageContentType) {
+    const s3Client = new S3Client({ region: process.env.AWS_REGION });
+    coverUploadUrl = await getSignedUrl(
+      s3Client,
+      new PutObjectCommand({
+        Bucket: GAME_COVER_BUCKET_NAME,
+        Key: `game-covers/${gameId}`,
+        ContentType: payload.coverImageContentType,
+      }),
+      { expiresIn: COVER_UPLOAD_URL_EXPIRY_SECONDS }
+    );
+  }
+
+  return { ...response, coverUploadUrl };
 };

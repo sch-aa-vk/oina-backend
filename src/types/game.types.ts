@@ -73,6 +73,7 @@ export interface UpdateGamePayload {
   tags?: string[];
   content?: GameContent;
   changeLog?: string;
+  coverImageContentType?: string;
 }
 
 export interface PublishGamePayload {
