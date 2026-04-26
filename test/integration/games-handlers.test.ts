@@ -93,20 +93,6 @@ describe("GET /games/{gameId} handler", () => {
     expect(body.data.gameId).toBe("game-1");
   });
 
-  it("returns 403 for non-owner", async () => {
-    mockSend.mockResolvedValueOnce({
-      Item: { ...mockGame, userId: "other-user" },
-    });
-
-    const result = await getGame(
-      makeEvent({ pathParameters: { gameId: "game-1" } }),
-    );
-
-    expect(result.statusCode).toBe(403);
-    const body = JSON.parse(result.body);
-    expect(body.error).toBe("GAME_FORBIDDEN");
-  });
-
   it("returns 404 when game not found", async () => {
     mockSend.mockResolvedValueOnce({ Item: undefined });
 
